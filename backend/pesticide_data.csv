@@ -1,0 +1,15 @@
+plant,disease,pesticide,base_ml_per_L
+potato,early_blight,Captan,2.0
+potato,late blight,Tebuconazole,1.0
+tomato,bacteria spot,Streptomycin,1.0
+tomato,early blight,Mancozeb,2.5
+tomato,late blight,Azoxystrobin,1.0
+corn,common rust,Kresoxim-methyl,1.0
+apple,scab,Hexaconazole,1.0
+apple,black rot,Zineb,2.0
+grapes,black rot,Difenoconazole,1.0
+grapes,black measles,Quintec,1.0
+peaches,bacterial spot,Streptomycin,1.0
+strawberry,leaf scorch,Topsin,1.0
+pepper bell,bacterial spot,Kasumycin,1.0
+cherry,powdery mildew,Myclobutanil,1.0
