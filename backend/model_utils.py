@@ -120,7 +120,7 @@ def get_base_dose(plant: str, disease: str):
     return pesticide, base_ml_per_L
 
 
-def compute_final_dose(base_ml_per_L: float, infection_percent: float, water_volume_ml: int = 1000) -> float:
+def compute_final_dose(base_ml_per_L: float, infection_percent: float, water_volume_ml: int = 100) -> float:
     """
     Dose for a container of water_volume_ml (default 100ml).
     """
