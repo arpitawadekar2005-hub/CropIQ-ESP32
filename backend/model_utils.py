@@ -124,7 +124,7 @@ def compute_final_dose(base_ml_per_L: float, infection_percent: float, water_vol
     """
     Dose for a container of water_volume_ml (default 100ml).
     """
-    base_for_container = base_ml_per_L * (water_volume_ml / 1000.0)
+    base_for_container = base_ml_per_L * (water_volume_ml / 100.0)
     final_dose = base_for_container * (infection_percent / 100.0)
     return round(final_dose, 3)
 
