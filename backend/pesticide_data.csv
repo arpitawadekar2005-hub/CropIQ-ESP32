@@ -1,15 +1,12 @@
 plant,disease,pesticide,base_ml_per_L
-tomato,early_blight,Captan,2.0
-tomato,late blight,Tebuconazole,1.0
-tomato,bacteria spot,Streptomycin,1.0
+tomato,bacterial spot,Copper hydroxide,1.5
 tomato,early blight,Mancozeb,2.5
-tomato,late blight,Azoxystrobin,1.0
-tomato,common rust,Kresoxim-methyl,1.0
-tomato,scab,Hexaconazole,1.0
-tomato,black rot,Zineb,2.0
-tomato,black rot,Difenoconazole,1.0
-tomato,black measles,Quintec,1.0
-tomato,bacterial spot,Streptomycin,1.0
-tomato,leaf scorch,Topsin,1.0
-tomato,bacterial spot,Kasumycin,1.0
-tomato,powdery mildew,Myclobutanil,1.0
+tomato,late blight,Metalaxyl-M(Ridomil),1.5
+tomato,leaf Mold,Chlorothalonil,2.5
+tomato,septoria leaf spot,Difenoconazole,2.0
+tomato,spider mites,abamectin,1.2
+tomato,Target spot,Azoxystrobin,1.5
+tomato,Tomato Yellow Leaf Curl Virus,Thiamethoxam,1.7
+tomato,Tomato Mosaic Virus,Imidacloprid,2.5
+tomato,Powdery Mildew,Hexaconazole,2.7
+
