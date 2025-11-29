@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
 import os
+import gdown
 
 # =============================
 # CONFIG
@@ -11,6 +12,16 @@ import os
 MODEL_PATH = os.environ.get("MODEL_PATH", "plant_disease_model.h5")
 CSV_PATH = os.environ.get("CSV_PATH", "pesticide_data.csv")
 
+DRIVE_FILE_ID = "170lylylDDiePU_pj1bfXppef6li1VMqz"  # <-- replace
+
+def download_model():
+    """Download the model from Drive if missing."""
+    if not os.path.exists(MODEL_PATH):
+        url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
+        print("📥 Downloading model from Google Drive...")
+        gdown.download(url, MODEL_PATH, quiet=False)
+        print("✅ Model downloaded:", MODEL_PATH)
+     
 # =============================
 # CLASS LABELS (must match model output)
 # =============================
@@ -39,10 +50,15 @@ pesticide_df = pd.read_csv(CSV_PATH)
 _model = None
 
 def load_cnn_model():
-    """Load the TensorFlow model only once."""
+    """Load TensorFlow model exactly once."""
     global _model
+
     if _model is None:
+        download_model()
+        print("🚀 Loading CNN model...")
         _model = load_model(MODEL_PATH)
+        print("✅ Model loaded!")
+
     return _model
 
 # =============================
