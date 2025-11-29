@@ -9,20 +9,54 @@ st.title("🌿 Plant Disease Detection Dashboard")
 
 col1, col2 = st.columns([1,1])
 
+# with col1:
+#     st.header("Latest Prediction from ESP32")
+
+#     if st.button("Refresh"):
+#         pass
+
+#     res = requests.get(f"{BACKEND}/latest").json()
+#     data = format_result(res)
+
+#     if not data:
+#         st.warning("No data yet — ESP32 has not uploaded an image")
+#     else:
+#         st.success("Latest Data Received")
+
+#         st.write(f"**Plant:** {data['plant']}")
+#         st.write(f"**Disease:** {data['disease']}")
+#         st.write(f"**Confidence:** {data['confidence']}%")
+#         st.write(f"**Infection:** {data['infection']}%")
+#         st.write(f"**Pesticide:** {data['pesticide']}")
+#         st.write(f"**Dose for 100 ml:** {data['dose']} ml")
+
+#         if st.button("Send Spray Command"):
+#             requests.post(f"{BACKEND}/spray", params={"duration_ms": 2000})
+#             st.success("Spray command sent to ESP32!")
+
 with col1:
     st.header("Latest Prediction from ESP32")
 
     if st.button("Refresh"):
-        pass
+        st.experimental_rerun()
 
-    res = requests.get(f"{BACKEND}/latest").json()
-    data = format_result(res)
+    latest = requests.get(f"{BACKEND}/latest").json()
+    data = format_result(latest)
+
+    img_bytes = requests.get(f"{BACKEND}/latest/image").content
 
     if not data:
         st.warning("No data yet — ESP32 has not uploaded an image")
     else:
         st.success("Latest Data Received")
 
+        # ---------- SHOW IMAGE ----------
+        if img_bytes and img_bytes != b'{"status":"no_image"}':
+            st.image(img_bytes, caption="Live Image from ESP32", use_column_width=True)
+        else:
+            st.info("Image not available")
+
+        # ---------- SHOW PREDICTION ----------
         st.write(f"**Plant:** {data['plant']}")
         st.write(f"**Disease:** {data['disease']}")
         st.write(f"**Confidence:** {data['confidence']}%")
@@ -33,6 +67,7 @@ with col1:
         if st.button("Send Spray Command"):
             requests.post(f"{BACKEND}/spray", params={"duration_ms": 2000})
             st.success("Spray command sent to ESP32!")
+
 
 # with col2:
 #     st.header("Manual Image Test")
