@@ -3,72 +3,124 @@ import requests
 from model_utils_frontend import format_result
 from streamlit_autorefresh import st_autorefresh
 
+# ===========================================
+# CONFIG
+# ===========================================
 BACKEND = st.secrets["BACKEND_URL"]
 
-# ================================
-# UI CONFIG
-# ================================
-st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Plant Disease Dashboard",
+    layout="wide",
+)
+
 st.title("🌿 Plant Disease Detection Dashboard")
 
-# 🔄 Auto refresh every 5 seconds
-st_autorefresh(interval=5000, limit=None, key="data_refresh")
+# Auto-refresh every 5s
+st_autorefresh(interval=5000, key="data_refresh")
 
 
-# ================================
-# ESP STATUS
-# ================================
-st.subheader("ESP32 Status")
+# ===========================================
+# STYLE
+# ===========================================
+st.markdown("""
+<style>
+.img-box {
+    border: 1px solid #444;
+    border-radius: 10px;
+    overflow: hidden;
+    max-height: 420px;
+}
+.pred-box {
+    text-align:center;
+    font-size:18px;
+    padding: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ===========================================
+# 1️⃣ ESP32 STATUS
+# ===========================================
+st.header("ESP32 Status")
 
 try:
-    status = requests.get(f"{BACKEND}/esp-status", timeout=2).json()
-    if status.get("status") == "online":
-        st.success(f"🟢 ESP32 Connected (last seen {status['last_seen']:.1f}s ago)")
+    status = requests.get(f"{BACKEND}/esp-status", timeout=3).json()
+    if status["status"] == "online":
+        st.success(f"🟢 ESP32 Connected — last seen {status['last_seen']:.1f}s ago")
     else:
         st.error("🔴 ESP32 NOT Connected")
-except Exception:
+except:
     st.error("⚠️ Backend unreachable")
 
-st.button("📸 Capture Leaf Image", on_click=lambda: requests.post(f"{BACKEND}/capture"))
 
-# ================================
-# LATEST IMAGE + PREDICTION
-# ================================
+# Capture photo button
+if st.button("📸 Capture Leaf Image"):
+    r = requests.post(f"{BACKEND}/capture")
+    st.toast("📩 Capture Request Sent to ESP32")
+
+
+st.markdown("---")
+
+
+# ===========================================
+# 2️⃣ LATEST PREDICTION
+# ===========================================
 st.header("Latest Prediction from ESP32")
 
-# Manual refresh option
-if st.button("Refresh"):
-    st.rerun()
+# Refresh button
+if st.button("🔄 Refresh"):
+    st.experimental_rerun()
 
-# ---- Get latest data ----
-latest = requests.get(f"{BACKEND}/latest").json()
-data = format_result(latest)
+# Fetch data
+latest_raw = requests.get(f"{BACKEND}/latest").json()
+data = format_result(latest_raw)
 
-# ---- Get latest image ----
-img_url = f"{BACKEND}/latest/image"
-img_response = requests.get(img_url)
-
-img_bytes = img_response.content if img_response.status_code == 200 else None
+img_bytes = requests.get(f"{BACKEND}/latest/image").content
 
 if not data:
     st.warning("No data yet — ESP32 has not uploaded an image")
-else:
-    st.success("Latest Data Received")
+    st.stop()
 
-    # ---------- SHOW IMAGE ----------
-    if img_bytes and img_bytes != b'{"status":"no_image"}':
-        st.image(img_bytes, caption="Live Image from ESP32", use_column_width=True)
-    else:
-        st.info("Image not available")
+# ===========================================
+# Layout — IMAGE LEFT / DATA RIGHT
+# ===========================================
+col_img, col_info = st.columns([3,2], gap="medium")
 
-    # ---------- SHOW PREDICTION ----------
-    st.write(f"**🌱 Plant:** {data['plant']}")
-    st.write(f"**🦠 Disease:** {data['disease']}")
-    st.write(f"**📊 Confidence:** {data['confidence']}%")
-    st.write(f"**🔥 Infection Level:** {data['infection']}%")
-    st.write(f"**🧪 Pesticide:** {data['pesticide']}")
-    st.write(f"**💧 Dose (per 100 ml):** {data['dose']} ml")
 
-    if st.button("Send Spray Command"):
+# ─── LEFT: IMAGE BOX ─────────────────────
+with col_img:
+    st.markdown("<div class='img-box'>", unsafe_allow_html=True)
+    st.image(img_bytes, caption="📷 Leaf Image from ESP32", use_column_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ─── RIGHT: PREDICTION ───────────────────
+with col_info:
+    st.markdown(
+        "<h3 style='text-align:center;'>🧠 Prediction Result</h3>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f"""
+        <div class="pred-box">
+        🌱 <b>Plant:</b> {data['plant']}<br><br>
+        🦠 <b>Disease:</b> {data['disease']}<br><br>
+        🎯 <b>Confidence:</b> {data['confidence']}%<br><br>
+        🔥 <b>Infection Level:</b> {data['infection']}%<br><br>
+        🧪 <b>Pesticide:</b> {data['pesticide']}<br><br>
+        💧 <b>Dose (per 100 ml):</b> {data['dose']} ml
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.write("")
+    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+
+    if st.button("🚿 Send Spray Command", use_container_width=True):
         requests.post(f"{BACKEND}/spray", params={"duration_ms": 2000})
-        st.success("🌧️ Spray command sent to ESP32!")
+        st.success("Spray Command Sent!")
+
+    st.markdown("</div>", unsafe_allow_html=True)
