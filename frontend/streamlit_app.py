@@ -38,7 +38,7 @@ with col1:
     st.header("Latest Prediction from ESP32")
 
     if st.button("Refresh"):
-        st.experimental_rerun()
+        st.rerun()
 
     latest = requests.get(f"{BACKEND}/latest").json()
     data = format_result(latest)
