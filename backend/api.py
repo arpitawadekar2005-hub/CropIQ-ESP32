@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 import numpy as np
 import cv2
 from model_utils import run_inference_bgr
@@ -14,28 +15,20 @@ app.add_middleware(
 )
 
 latest_result = None
+latest_image = None
 pending_command = None
 
 
 @app.post("/predict/raw")
 async def predict_raw(request: Request):
-    global latest_result
-
-    # Read raw bytes
+    global latest_result, latest_image
+    
     content = await request.body()
+    latest_image = content  # store image for UI
 
-    if not content:
-        return {"error": "no_bytes_received"}
-
-    # Convert to numpy
     nparr = np.frombuffer(content, np.uint8)
-
-    # Decode to BGR image
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        return {"error": "opencv_decode_failed", "bytes": len(content)}
 
-    # Run ML model
     result = run_inference_bgr(img)
     latest_result = result
 
@@ -44,9 +37,11 @@ async def predict_raw(request: Request):
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    global latest_result
-
+    global latest_result, latest_image
+    
     content = await file.read()
+    latest_image = content
+
     nparr = np.frombuffer(content, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
@@ -59,6 +54,13 @@ async def predict(file: UploadFile = File(...)):
 @app.get("/latest")
 def get_latest():
     return latest_result or {"status": "no_data"}
+
+
+@app.get("/latest/image")
+def get_latest_image():
+    if latest_image:
+        return Response(latest_image, media_type="image/jpeg")
+    return {"status": "no_image"}
 
 
 @app.post("/spray")
