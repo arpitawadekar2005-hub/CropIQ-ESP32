@@ -29,6 +29,7 @@ try:
 except Exception:
     st.error("⚠️ Backend unreachable")
 
+st.button("📸 Capture Leaf Image", on_click=lambda: requests.post(f"{BACKEND}/capture"))
 
 # ================================
 # LATEST IMAGE + PREDICTION
