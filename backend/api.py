@@ -17,6 +17,20 @@ app.add_middleware(
 latest_result = None
 pending_command = None
 
+@app.post("/predict/raw")
+async def predict_raw(request: Request):
+    global latest_result
+    
+    content = await request.body()   # image bytes
+    
+    nparr = np.frombuffer(content, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    result = run_inference_bgr(img)
+    latest_result = result
+    
+    return {"status": "ok", "result": result}
+    
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     global latest_result
