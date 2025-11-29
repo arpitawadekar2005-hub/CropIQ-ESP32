@@ -34,11 +34,11 @@ with col1:
             requests.post(f"{BACKEND}/spray", params={"duration_ms": 2000})
             st.success("Spray command sent to ESP32!")
 
-with col2:
-    st.header("Manual Image Test")
+# with col2:
+#     st.header("Manual Image Test")
 
-    uploaded = st.file_uploader("Upload leaf image", type=["jpg","png","jpeg"])
-    if uploaded:
-        files = {"file": (uploaded.name, uploaded.read(), uploaded.type)}
-        result = requests.post(f"{BACKEND}/predict", files=files).json()
-        st.json(result)
+#     uploaded = st.file_uploader("Upload leaf image", type=["jpg","png","jpeg"])
+#     if uploaded:
+#         files = {"file": (uploaded.name, uploaded.read(), uploaded.type)}
+#         result = requests.post(f"{BACKEND}/predict", files=files).json()
+#         st.json(result)
