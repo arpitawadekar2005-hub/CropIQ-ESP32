@@ -70,7 +70,7 @@ st.header("Latest Prediction from ESP32")
 
 # Refresh button
 if st.button("🔄 Refresh"):
-    st.experimental_rerun()
+    st.rerun()
 
 # Fetch data
 latest_raw = requests.get(f"{BACKEND}/latest").json()
