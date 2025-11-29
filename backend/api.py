@@ -4,7 +4,7 @@ from fastapi.responses import Response
 import numpy as np
 import cv2
 from model_utils import run_inference_bgr
-from datetime import datetime 
+from datetime import datetime
 
 app = FastAPI()
 
@@ -15,21 +15,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===========================
+# STATE
+# ===========================
 latest_result = None
 latest_image = None
 pending_command = None
-last_ping = None          # last time we got an image
+last_ping = None
 last_heartbeat = None
 
 
+# ===========================
+# IMAGE UPLOAD (ESP)
+# ===========================
 @app.post("/predict/raw")
 async def predict_raw(request: Request):
     global latest_result, latest_image, last_ping
 
-    # Read image bytes from ESP32
     content = await request.body()
     latest_image = content
-    last_ping = datetime.utcnow()   # 🔹 mark image received time
+    last_ping = datetime.utcnow()
 
     nparr = np.frombuffer(content, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -40,11 +45,13 @@ async def predict_raw(request: Request):
     return {"status": "ok", "result": result}
 
 
-
+# ===========================
+# IMAGE UPLOAD (Manual UI)
+# ===========================
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     global latest_result, latest_image
-    
+
     content = await file.read()
     latest_image = content
 
@@ -57,6 +64,9 @@ async def predict(file: UploadFile = File(...)):
     return {"status": "ok", "result": result}
 
 
+# ===========================
+# LIVE INFO
+# ===========================
 @app.get("/latest")
 def get_latest():
     return latest_result or {"status": "no_data"}
@@ -69,6 +79,9 @@ def get_latest_image():
     return {"status": "no_image"}
 
 
+# ===========================
+# SPRAY CONTROL
+# ===========================
 @app.post("/spray")
 def spray(duration_ms: int = 2000):
     global pending_command
@@ -76,6 +89,27 @@ def spray(duration_ms: int = 2000):
     return {"status": "queued"}
 
 
+@app.post("/spray/stop")
+def spray_stop():
+    global pending_command
+    pending_command = {"command": "stop"}
+    return {"status": "queued"}
+
+
+# ===========================
+# CAPTURE
+# ===========================
+@app.post("/capture")
+def capture():
+    global pending_command
+    if pending_command is None:
+        pending_command = {"command": "capture"}
+    return {"status": "queued"}
+
+
+# ===========================
+# ESP COMMAND CHECK
+# ===========================
 @app.get("/get-command")
 def get_command():
     global pending_command
@@ -85,12 +119,16 @@ def get_command():
         return cmd
     return {"command": "none"}
 
+
+# ===========================
+# HEARTBEAT
+# ===========================
 @app.post("/esp-ping")
 def esp_ping():
-    """ESP32 calls this to say 'I'm alive' even if no image."""
     global last_heartbeat
     last_heartbeat = datetime.utcnow()
     return {"status": "ok"}
+
 
 @app.get("/esp-status")
 def esp_status():
@@ -109,7 +147,21 @@ def esp_status():
 
     last_seen = min(ages)
 
-    if last_seen < 20:  # 🔹 consider ESP 'online' if seen in last 20s
+    if last_seen < 20:
         return {"status": "online", "last_seen": last_seen}
-    else:
-        return {"status": "offline", "last_seen": last_seen}
+
+    return {"status": "offline", "last_seen": last_seen}
+
+
+# ===========================
+# ADMIN / DEBUG TOOL
+# ===========================
+@app.post("/clear")
+def clear_state():
+    global latest_result, latest_image, pending_command, last_ping, last_heartbeat
+    latest_result = None
+    latest_image = None
+    pending_command = None
+    last_ping = None
+    last_heartbeat = None
+    return {"status": "cleared"}
