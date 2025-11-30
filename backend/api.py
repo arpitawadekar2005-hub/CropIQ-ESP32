@@ -82,12 +82,21 @@ def get_latest_image():
 # ===========================
 # SPRAY CONTROL
 # ===========================
-@app.post("/spray")
-def spray(duration_ms: int = 2000):
-    global pending_command
-    pending_command = {"command": "start", "duration_ms": duration_ms}
-    return {"status": "queued"}
+# @app.post("/spray")
+# def spray(duration_ms: int = 2000):
+#     global pending_command
+#     pending_command = {"command": "start", "duration_ms": duration_ms}
+#     return {"status": "queued"}
 
+@app.post("/spray")
+def spray(volume_ml: float = 10.0):
+    """
+    Queue a spray command with the exact volume (in mL)
+    the ESP should dispense using the flow sensor.
+    """
+    global pending_command
+    pending_command = {"command": "spray", "volume_ml": volume_ml}
+    return {"status": "queued"}
 
 @app.post("/spray/stop")
 def spray_stop():
