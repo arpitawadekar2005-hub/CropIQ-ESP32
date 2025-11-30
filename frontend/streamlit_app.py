@@ -120,7 +120,7 @@ with col_info:
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 
     if st.button("🚿 Send Spray Command", use_container_width=True):
-        requests.post(f"{BACKEND}/spray", params={"duration_ms": 2000})
+        requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
         st.success("Spray Command Sent!")
 
     st.markdown("</div>", unsafe_allow_html=True)
