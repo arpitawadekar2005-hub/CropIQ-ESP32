@@ -161,25 +161,38 @@ with tab_manual:
 
     # Optional: allow the user to provide a confidence override or extra metadata in the future
     if uploaded_file is not None:
-        # Show a preview immediately
-        image_bytes = uploaded_file.getvalue()
-        st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
+    image_bytes = uploaded_file.getvalue()
+    st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
 
-        # Send to backend for prediction (reuse same model endpoint)
-        if st.button("🔎 Predict from Uploaded Image"):
-            try:
-                files = {"image": (uploaded_file.name, image_bytes, uploaded_file.type)}
-                # Expecting backend to provide same response shape as /latest
-                resp = requests.post(f"{BACKEND}/predict", files=files, timeout=10)
-                resp.raise_for_status()
-                result_raw = resp.json()
-                # Render same UI (prediction + spray button)
-                render_prediction_ui(image_bytes, result_raw)
-            except Exception as e:
-                st.error(f"Prediction request failed: {e}")
+    if st.button("🔎 Predict from Uploaded Image"):
+        try:
+            # <- IMPORTANT: backend expects field name "file"
+            files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
+            resp = requests.post(f"{BACKEND}/predict", files=files, timeout=15)
+        except Exception as e:
+            st.error(f"Failed to send request: {e}")
+        else:
+            st.write("Status code:", resp.status_code)
+            st.write("Response headers:", dict(resp.headers))
+            st.code(resp.text, language="json")
 
-    else:
-        st.info("Upload a leaf image to run the prediction model.")
+            if not resp.ok:
+                st.error(f"Backend returned {resp.status_code}. See raw response above.")
+            else:
+                # Backend returns {"status":"ok","result": <your result dict>}
+                try:
+                    resp_json = resp.json()
+                except Exception as e:
+                    st.error(f"Response is not valid JSON: {e}")
+                    st.stop()
+
+                if resp_json.get("status") != "ok" or "result" not in resp_json:
+                    st.error("Unexpected response shape from backend; see raw response above.")
+                else:
+                    result_raw = resp_json["result"]
+                    # render the same UI as ESP tab using the unwrapped result
+                    render_prediction_ui(image_bytes, result_raw)
+
 
 
 # ===========================================
