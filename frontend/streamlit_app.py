@@ -165,33 +165,33 @@ with tab_manual:
         st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
 
         if st.button("🔎 Predict from Uploaded Image"):
-        try:
-            # <- IMPORTANT: backend expects field name "file"
-            files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
-            resp = requests.post(f"{BACKEND}/predict", files=files, timeout=15)
-        except Exception as e:
-            st.error(f"Failed to send request: {e}")
-        else:
-            st.write("Status code:", resp.status_code)
-            st.write("Response headers:", dict(resp.headers))
-            st.code(resp.text, language="json")
-
-            if not resp.ok:
-                st.error(f"Backend returned {resp.status_code}. See raw response above.")
+            try:
+                # <- IMPORTANT: backend expects field name "file"
+                files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
+                resp = requests.post(f"{BACKEND}/predict", files=files, timeout=15)
+            except Exception as e:
+                st.error(f"Failed to send request: {e}")
             else:
-                # Backend returns {"status":"ok","result": <your result dict>}
-                try:
-                    resp_json = resp.json()
-                except Exception as e:
-                    st.error(f"Response is not valid JSON: {e}")
-                    st.stop()
+                st.write("Status code:", resp.status_code)
+                st.write("Response headers:", dict(resp.headers))
+                st.code(resp.text, language="json")
 
-                if resp_json.get("status") != "ok" or "result" not in resp_json:
-                    st.error("Unexpected response shape from backend; see raw response above.")
+                if not resp.ok:
+                    st.error(f"Backend returned {resp.status_code}. See raw response above.")
                 else:
-                    result_raw = resp_json["result"]
-                    # render the same UI as ESP tab using the unwrapped result
-                    render_prediction_ui(image_bytes, result_raw)
+                    # Backend returns {"status":"ok","result": <your result dict>}
+                    try:
+                        resp_json = resp.json()
+                    except Exception as e:
+                        st.error(f"Response is not valid JSON: {e}")
+                        st.stop()
+
+                    if resp_json.get("status") != "ok" or "result" not in resp_json:
+                        st.error("Unexpected response shape from backend; see raw response above.")
+                    else:
+                        result_raw = resp_json["result"]
+                        # render the same UI as ESP tab using the unwrapped result
+                        render_prediction_ui(image_bytes, result_raw)
 
 
 
