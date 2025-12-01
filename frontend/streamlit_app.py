@@ -128,4 +128,4 @@ else:
             data = format_result(latest_raw)
             dose_ml = latest_raw.get("dose_ml", 0.0)
         else:
-            st.error("❌ Prediction failed — backend e
+            st.error("❌ Prediction failed — backend ")
