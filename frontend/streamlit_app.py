@@ -161,10 +161,10 @@ with tab_manual:
 
     # Optional: allow the user to provide a confidence override or extra metadata in the future
     if uploaded_file is not None:
-    image_bytes = uploaded_file.getvalue()
-    st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
+        image_bytes = uploaded_file.getvalue()
+        st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
 
-    if st.button("🔎 Predict from Uploaded Image"):
+        if st.button("🔎 Predict from Uploaded Image"):
         try:
             # <- IMPORTANT: backend expects field name "file"
             files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
