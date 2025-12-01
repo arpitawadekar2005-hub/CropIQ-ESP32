@@ -231,8 +231,11 @@ with tab_manual:
                         headers={'Content-Type': uploaded_file.type}
                     )
                     upload_response.raise_for_status()
-                    st.success("Image uploaded successfully! Switch to the 'Live ESP32 Data' tab to see the new prediction.")
-                    # Note: We rely on the autorefresh or manual switch to show the new result.
+                    st.success("Image uploaded successfully! Switching to Live Data...")
+                    
+                    # Force a rerun to instantly fetch the new data and update the 'Live ESP32 Data' tab
+                    st.rerun()
+
                 except requests.exceptions.HTTPError as e:
                     st.error(f"Upload failed: Backend returned error {e.response.status_code}. Response: {upload_response.text}")
                 except RequestException:
