@@ -74,6 +74,15 @@ if st.button("🔄 Refresh"):
 
 # Fetch data
 latest_raw = requests.get(f"{BACKEND}/latest").json()
+
+# 💡 FIX START: Extract the calculated dose from the backend response.
+# The backend uses the key 'dose_ml' for the raw numeric value.
+dose_ml = latest_raw.get("dose_ml") 
+# Ensure it's treated as 0.0 or a safe number if the dose is None (e.g., if the plant is healthy)
+if dose_ml is None or dose_ml == 0:
+    dose_ml = 0.0
+# 💡 FIX END
+
 data = format_result(latest_raw)
 
 img_bytes = requests.get(f"{BACKEND}/latest/image").content
@@ -119,8 +128,12 @@ with col_info:
     st.write("")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 
+    # This line now works because dose_ml is defined above
     if st.button("🚿 Send Spray Command", use_container_width=True):
-        requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
-        st.success("Spray Command Sent!")
+        if dose_ml > 0:
+            requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
+            st.success(f"Spray Command Sent: {dose_ml} mL!")
+        else:
+            st.warning("Cannot spray: Calculated dose is 0 mL (Plant appears healthy).")
 
     st.markdown("</div>", unsafe_allow_html=True)
