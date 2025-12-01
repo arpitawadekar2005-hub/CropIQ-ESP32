@@ -139,12 +139,17 @@ with tab_live:
 
     latest_raw, img_bytes = fetch_latest_data()
     
+    # Check if both prediction data AND image bytes are present for a COMPLETE result
+    is_complete_data_present = latest_raw and img_bytes
+
     if latest_raw is None:
         # This handles connection errors caught in fetch_latest_data
         st.warning("Waiting for data from backend...")
-    elif not latest_raw:
-        # This handles a successful connection, but the backend returned an empty payload
-        st.info("No prediction data yet. Use the 'Capture' button above or the 'Manual Upload' tab to generate data.")
+    elif not is_complete_data_present:
+        # This handles:
+        # 1. Backend returned {} (empty prediction)
+        # 2. Backend returned stale prediction JSON, but the image data is missing or corrupt (img_bytes is empty).
+        st.info("No complete prediction data yet. Use the 'Capture' button above or the 'Manual Upload' tab to generate data.")
     else:
         # --- DISPLAY RESULTS (Reused Logic) ---
         dose_ml = latest_raw.get("dose_ml", 0.0)
