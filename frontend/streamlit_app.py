@@ -16,7 +16,7 @@ st.set_page_config(
 
 st.title("🌿 Plant Disease Detection Dashboard")
 
-# Auto-refresh every 5s
+# Auto-refresh every 5 seconds
 st_autorefresh(interval=5000, key="data_refresh")
 
 
@@ -51,19 +51,21 @@ try:
         st.success(f"🟢 ESP32 Connected — last seen {status['last_seen']:.1f}s ago")
     else:
         st.error("🔴 ESP32 NOT Connected")
-except:
+except Exception:
     st.error("⚠️ Backend unreachable")
 
 
+# Capture photo button
 if st.button("📸 Capture Leaf Image"):
     requests.post(f"{BACKEND}/capture")
     st.toast("📩 Capture Request Sent to ESP32")
+
 
 st.markdown("---")
 
 
 # ===========================================
-# 2️⃣ PREDICTION INPUT MODE
+# 2️⃣ SELECT MODE
 # ===========================================
 st.header("Latest Prediction")
 
@@ -86,8 +88,12 @@ if mode == "📡 ESP32 (Live)":
     if st.button("🔄 Refresh ESP Data"):
         st.rerun()
 
-    latest_raw = requests.get(f"{BACKEND}/latest").json()
-    img_bytes = requests.get(f"{BACKEND}/latest/image").content
+    try:
+        latest_raw = requests.get(f"{BACKEND}/latest").json()
+        img_bytes = requests.get(f"{BACKEND}/latest/image").content
+    except Exception:
+        st.error("⚠️ Could not fetch data from backend.")
+        st.stop()
 
     if not latest_raw:
         st.warning("No prediction yet from ESP32.")
@@ -113,14 +119,24 @@ else:
     files = {"image": uploaded_file.getvalue()}
     resp = requests.post(f"{BACKEND}/predict/raw", files=files)
 
-    latest_raw = resp.json()
+    # --- SAFE JSON HANDLING
+    if resp.headers.get("Content-Type") != "application/json":
+        st.error(f"Backend Response:\n{resp.text}")
+        st.stop()
+
+    try:
+        latest_raw = resp.json()
+    except Exception:
+        st.error(f"Invalid JSON returned by backend:\n{resp.text}")
+        st.stop()
+
     img_bytes = uploaded_file.getvalue()
     data = format_result(latest_raw)
     dose_ml = latest_raw.get("dose_ml", 0.0)
 
 
 # ===========================================
-# 3️⃣ DISPLAY RESULTS (Same for ESP + Manual)
+# 3️⃣ DISPLAY RESULT
 # ===========================================
 col_img, col_info = st.columns([3, 2], gap="medium")
 
@@ -128,6 +144,7 @@ with col_img:
     st.markdown("<div class='img-box'>", unsafe_allow_html=True)
     st.image(img_bytes, caption="📷 Leaf Image", use_column_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 with col_info:
     st.markdown(
@@ -152,6 +169,7 @@ with col_info:
     st.write("")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 
+    # Spray button works for both
     if st.button("🚿 Send Spray Command", use_container_width=True):
         if dose_ml > 0:
             requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
