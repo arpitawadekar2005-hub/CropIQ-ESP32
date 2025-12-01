@@ -22,7 +22,14 @@ st.set_page_config(
 
 st.title("🌿 Plant Disease Detection Dashboard")
 
-# Auto-refresh every 5s to check for new data
+# Initialize session state for manual prediction results
+if 'manual_prediction' not in st.session_state:
+    st.session_state.manual_prediction = None
+if 'manual_image_bytes' not in st.session_state:
+    st.session_state.manual_image_bytes = b''
+
+
+# Auto-refresh every 5s to check for new data (only affects the Live tab)
 st_autorefresh(interval=5000, key="data_refresh")
 
 
@@ -88,8 +95,7 @@ st.header("2. Prediction Results")
 # --- TAB SETUP ---
 tab_live, tab_manual = st.tabs(["Live ESP32 Data", "Manual Upload / Test"])
 
-# --- FETCH DATA WITH ROBUST ERROR HANDLING ---
-# This function centralizes the data fetching logic to be used by the 'Live' tab
+# --- FETCH DATA WITH ROBUST ERROR HANDLING (FOR LIVE TAB ONLY) ---
 def fetch_latest_data():
     latest_raw = {}
     img_bytes = b''
@@ -129,6 +135,60 @@ def fetch_latest_data():
     
     return latest_raw, img_bytes
 
+# --- Function to display results (reused by both tabs) ---
+def display_prediction_result(prediction_data, image_bytes):
+    dose_ml = prediction_data.get("dose_ml", 0.0)
+    data = format_result(prediction_data)
+    
+    col_img, col_info = st.columns([3,2], gap="medium")
+    
+    # LEFT: IMAGE BOX
+    with col_img:
+        st.markdown("<div class='img-box'>", unsafe_allow_html=True)
+        if image_bytes:
+            # Use image_bytes passed to this function
+            st.image(image_bytes, caption="📷 Image for Prediction", use_column_width=True) 
+        else:
+            st.markdown(
+                "<div style='height:420px; display:flex; align-items:center; justify-content:center; background-color:#262730; color:#aaa; border-radius:10px;'>"
+                "<h3>🖼️ No Image Received</h3>"
+                "</div>", unsafe_allow_html=True
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # RIGHT: PREDICTION
+    with col_info:
+        st.markdown(
+            "<h3 style='text-align:center;'>🧠 Prediction Result</h3>",
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f"""
+            <div class="pred-box">
+            🌱 <b>Plant:</b> {data['plant']}<br><br>
+            🦠 <b>Disease:</b> {data['disease']}<br><br>
+            🎯 <b>Confidence:</b> {data['confidence']}%<br><br>
+            🔥 <b>Infection Level:</b> {data['infection']}%<br><br>
+            🧪 <b>Pesticide:</b> {data['pesticide']}<br><br>
+            💧 <b>Dose (per 100 ml):</b> {data['dose']} ml
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+        # Note: Spray command is only relevant for the ESP32 setup, but kept here for completeness
+        if st.button("🚿 Send Spray Command", use_container_width=True):
+            if dose_ml > 0:
+                try:
+                    requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
+                    st.success(f"Spray Command Sent: {dose_ml} mL!")
+                except RequestException:
+                     st.error("Could not send spray command. Backend is unreachable.")
+            else:
+                st.warning("Cannot spray: Calculated dose is 0 mL (Plant appears healthy).")
+        st.markdown("</div>", unsafe_allow_html=True)
+
 # --- LIVE ESP32 DATA TAB ---
 with tab_live:
     st.subheader("Latest Result from ESP32/Backend")
@@ -143,64 +203,12 @@ with tab_live:
     is_complete_data_present = latest_raw and img_bytes
 
     if latest_raw is None:
-        # This handles connection errors caught in fetch_latest_data
         st.warning("Waiting for data from backend...")
     elif not is_complete_data_present:
-        # This handles:
-        # 1. Backend returned {} (empty prediction)
-        # 2. Backend returned stale prediction JSON, but the image data is missing or corrupt (img_bytes is empty).
         st.info("No complete prediction data yet. Use the 'Capture' button above or the 'Manual Upload' tab to generate data.")
     else:
-        # --- DISPLAY RESULTS (Reused Logic) ---
-        dose_ml = latest_raw.get("dose_ml", 0.0)
-        data = format_result(latest_raw)
-        
-        col_img, col_info = st.columns([3,2], gap="medium")
-        
-        # LEFT: IMAGE BOX
-        with col_img:
-            st.markdown("<div class='img-box'>", unsafe_allow_html=True)
-            if img_bytes:
-                st.image(img_bytes, caption="📷 Leaf Image from ESP32", use_column_width=True) 
-            else:
-                st.markdown(
-                    "<div style='height:420px; display:flex; align-items:center; justify-content:center; background-color:#262730; color:#aaa; border-radius:10px;'>"
-                    "<h3>🖼️ No Image Received</h3>"
-                    "</div>", unsafe_allow_html=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # RIGHT: PREDICTION
-        with col_info:
-            st.markdown(
-                "<h3 style='text-align:center;'>🧠 Prediction Result</h3>",
-                unsafe_allow_html=True
-            )
-            st.markdown(
-                f"""
-                <div class="pred-box">
-                🌱 <b>Plant:</b> {data['plant']}<br><br>
-                🦠 <b>Disease:</b> {data['disease']}<br><br>
-                🎯 <b>Confidence:</b> {data['confidence']}%<br><br>
-                🔥 <b>Infection Level:</b> {data['infection']}%<br><br>
-                🧪 <b>Pesticide:</b> {data['pesticide']}<br><br>
-                💧 <b>Dose (per 100 ml):</b> {data['dose']} ml
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-            if st.button("🚿 Send Spray Command", use_container_width=True):
-                if dose_ml > 0:
-                    try:
-                        requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
-                        st.success(f"Spray Command Sent: {dose_ml} mL!")
-                    except RequestException:
-                         st.error("Could not send spray command. Backend is unreachable.")
-                else:
-                    st.warning("Cannot spray: Calculated dose is 0 mL (Plant appears healthy).")
-            st.markdown("</div>", unsafe_allow_html=True)
+        # Display the live data fetched from the backend's /latest endpoints
+        display_prediction_result(latest_raw, img_bytes)
 
 # --- MANUAL UPLOAD / TEST TAB ---
 with tab_manual:
@@ -213,11 +221,12 @@ with tab_manual:
     )
 
     if uploaded_file is not None:
-        image_bytes = uploaded_file.read()
+        # Keep the image bytes in a separate variable for display
+        uploaded_image_bytes = uploaded_file.read()
         
         col_prev, col_up = st.columns([1, 2])
         with col_prev:
-            st.image(image_bytes, caption="Local Preview", width=150)
+            st.image(uploaded_image_bytes, caption="Local Preview", width=150)
             
         with col_up:
             if st.button("🚀 Upload & Process Image", key="manual_upload_btn", use_container_width=True):
@@ -227,21 +236,34 @@ with tab_manual:
                     # Send the raw bytes to the new backend endpoint
                     upload_response = requests.post(
                         f"{BACKEND}/upload-image", 
-                        data=image_bytes,
+                        data=uploaded_image_bytes,
                         headers={'Content-Type': uploaded_file.type}
                     )
                     upload_response.raise_for_status()
-                    st.success("Image uploaded successfully! Switching to Live Data...")
                     
-                    # Force a rerun to instantly fetch the new data and update the 'Live ESP32 Data' tab
+                    # --- NEW LOGIC: Fetch the result for the manual tab specifically ---
+                    # 1. Fetch the LATEST prediction JSON (which should contain the result of the image we just uploaded)
+                    pred_response = requests.get(f"{BACKEND}/latest")
+                    pred_response.raise_for_status()
+                    manual_result = pred_response.json()
+
+                    # 2. Store the image bytes and prediction in session state
+                    st.session_state.manual_prediction = manual_result
+                    st.session_state.manual_image_bytes = uploaded_image_bytes
+                    
+                    st.success("Image processed successfully! See result below.")
+                    # Force rerun to display the new session state data instantly
                     st.rerun()
 
                 except requests.exceptions.HTTPError as e:
                     st.error(f"Upload failed: Backend returned error {e.response.status_code}. Response: {upload_response.text}")
                 except RequestException:
-                    st.error("Could not connect to the backend to upload the image.")
+                    st.error("Could not connect to the backend to upload or fetch the result.")
 
     else:
+        # Reset manual prediction state when no file is uploaded
+        st.session_state.manual_prediction = None
+        st.session_state.manual_image_bytes = b''
         st.markdown(
             """
             <div style='padding: 20px; background-color: #1e1e2d; border-radius: 8px; text-align: center; color: #ccc;'>
@@ -250,3 +272,9 @@ with tab_manual:
             """,
             unsafe_allow_html=True
         )
+
+    # --- DISPLAY MANUAL PREDICTION RESULTS ---
+    if st.session_state.manual_prediction:
+        st.markdown("---")
+        st.subheader("Manual Prediction Result")
+        display_prediction_result(st.session_state.manual_prediction, st.session_state.manual_image_bytes)
