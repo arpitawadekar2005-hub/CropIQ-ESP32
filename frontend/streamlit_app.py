@@ -8,7 +8,6 @@ from streamlit_autorefresh import st_autorefresh
 # ============================
 # CONFIG
 # ============================
-# Use a safe get to avoid KeyError when secrets are missing during local dev
 BACKEND = st.secrets.get("BACKEND_URL", "http://localhost:8000")
 
 st.set_page_config(
@@ -53,7 +52,6 @@ try:
     if resp.ok:
         status = resp.json()
         if status.get("status") == "online":
-            # last_seen value may be absent or non-numeric; guard it
             last_seen = status.get("last_seen")
             try:
                 last_seen_str = f" — last seen {float(last_seen):.1f}s ago" if last_seen is not None else ""
@@ -72,7 +70,6 @@ if st.button("📸 Capture Leaf Image"):
     try:
         post = requests.post(f"{BACKEND}/capture", timeout=5)
         if post.ok:
-            # st.toast may not exist in some Streamlit versions; use success
             st.success("📩 Capture request sent to ESP32")
         else:
             st.warning("Capture request sent but backend responded with an error.")
@@ -82,89 +79,97 @@ if st.button("📸 Capture Leaf Image"):
 st.markdown("---")
 
 # ============================
-# FETCH LATEST PREDICTION + IMAGE (Robust)
+# REFRESH BUTTON
 # ============================
-# Refresh button (explicit)
 if st.button("🔄 Refresh"):
     try:
         st.experimental_rerun()
     except Exception:
-        # Fallback in case experimental_rerun raises; just continue
         pass
 
-# Default safe containers
+# ============================
+# FETCH LATEST METADATA AND IMAGE (Robust)
+# ============================
 latest_raw = {}
 dose_ml = 0.0
 data = {}
 pil_image = None
 
-# --- Fetch latest metadata/result safely ---
+# Fetch latest metadata/result safely
 try:
     latest_resp = requests.get(f"{BACKEND}/latest", timeout=5)
     if latest_resp.ok and latest_resp.content:
-        # Attempt to parse JSON, but guard against parse failure
         try:
             latest_raw = latest_resp.json()
         except ValueError:
-            # Backend returned non-JSON; treat as no data
             latest_raw = {}
     else:
         latest_raw = {}
 except requests.RequestException:
     latest_raw = {}
 
-# Normalize dose value early (always numeric)
+# Normalize dose
 try:
     dose_ml = float(latest_raw.get("dose_ml", 0.0) or 0.0)
 except Exception:
     dose_ml = 0.0
 
-# Decide whether we have a meaningful prediction payload.
-# Adjust keys checked to fit your backend contract if necessary.
-has_prediction = bool(
+# Determine whether backend has a prediction-like payload (metadata only)
+has_metadata_prediction = bool(
     latest_raw
     and any(k in latest_raw for k in ("plant", "disease", "confidence", "infection", "pesticide", "dose_ml"))
 )
 
-# If there is a prediction, format it for display
-if has_prediction:
+# Fetch image safely (we fetch image regardless so we can decide later)
+try:
+    img_resp = requests.get(f"{BACKEND}/latest/image", timeout=5)
+    if img_resp.ok and img_resp.content:
+        ctype = img_resp.headers.get("Content-Type", "")
+        if ctype and ctype.startswith("image"):
+            img_bytes = img_resp.content
+            try:
+                tmp = Image.open(io.BytesIO(img_bytes))
+                tmp.verify()  # raises if corrupted
+                tmp = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                pil_image = tmp
+            except (UnidentifiedImageError, OSError):
+                pil_image = None
+        else:
+            pil_image = None
+    else:
+        pil_image = None
+except requests.RequestException:
+    pil_image = None
+
+# Only show prediction when BOTH metadata exists and a valid image was retrieved
+show_prediction = bool(has_metadata_prediction and (pil_image is not None))
+
+# Prepare formatted data only if we will show it (defensive)
+if show_prediction:
     try:
         data = format_result(latest_raw) or {}
     except Exception:
-        # If formatting fails, still continue with raw values but don't crash
         data = {
             "plant": latest_raw.get("plant", "Unknown"),
             "disease": latest_raw.get("disease", "Unknown"),
             "confidence": latest_raw.get("confidence", 0),
             "infection": latest_raw.get("infection", 0),
             "pesticide": latest_raw.get("pesticide", "Unknown"),
-            "dose": latest_raw.get("dose", "0"),
+            "dose": latest_raw.get("dose", f"{dose_ml}"),
         }
-
-    # --- Fetch image safely only when prediction exists ---
-    try:
-        img_resp = requests.get(f"{BACKEND}/latest/image", timeout=5)
-        if img_resp.ok and img_resp.content:
-            ctype = img_resp.headers.get("Content-Type", "")
-            if ctype and ctype.startswith("image"):
-                img_bytes = img_resp.content
-                try:
-                    # Use PIL to verify and open image
-                    temp_img = Image.open(io.BytesIO(img_bytes))
-                    temp_img.verify()  # raises if corrupted
-                    temp_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-                    pil_image = temp_img
-                except (UnidentifiedImageError, OSError):
-                    pil_image = None
-            else:
-                pil_image = None
-        else:
-            pil_image = None
-    except requests.RequestException:
-        pil_image = None
+else:
+    # Ensure data defaults exist to avoid KeyError in UI (not used when show_prediction is False)
+    data = {
+        "plant": "Unknown",
+        "disease": "Unknown",
+        "confidence": 0,
+        "infection": 0,
+        "pesticide": "Unknown",
+        "dose": f"{dose_ml}",
+    }
 
 # ============================
-# RENDER LAYOUT: IMAGE LEFT / DATA RIGHT
+# RENDER LAYOUT
 # ============================
 col_img, col_info = st.columns([3, 2], gap="medium")
 
@@ -172,10 +177,8 @@ col_img, col_info = st.columns([3, 2], gap="medium")
 with col_img:
     st.markdown("<div class='img-box'>", unsafe_allow_html=True)
     if pil_image is not None:
-        # Safe: only call st.image with a valid PIL image
         st.image(pil_image, caption="📷 Leaf Image from ESP32", use_column_width=True)
     else:
-        # Friendly placeholder — no errors or tracebacks shown to user
         st.markdown(
             """
             <div style='display:flex;align-items:center;justify-content:center;height:300px;padding:20px;'>
@@ -190,13 +193,12 @@ with col_img:
 with col_info:
     st.markdown("<h3 style='text-align:center;'>🧠 Prediction Result</h3>", unsafe_allow_html=True)
 
-    if has_prediction:
-        # Use safe retrieval with defaults
-        plant = data.get("plant", latest_raw.get("plant", "Unknown"))
-        disease = data.get("disease", latest_raw.get("disease", "Unknown"))
-        confidence = data.get("confidence", latest_raw.get("confidence", 0))
-        infection = data.get("infection", latest_raw.get("infection", 0))
-        pesticide = data.get("pesticide", latest_raw.get("pesticide", "Unknown"))
+    if show_prediction:
+        plant = data.get("plant", "Unknown")
+        disease = data.get("disease", "Unknown")
+        confidence = data.get("confidence", 0)
+        infection = data.get("infection", 0)
+        pesticide = data.get("pesticide", "Unknown")
         dose_display = data.get("dose", f"{dose_ml}")
 
         st.markdown(
@@ -216,7 +218,7 @@ with col_info:
         st.markdown(
             """
             <div class="pred-box">
-            No prediction available — ESP32 has not uploaded an image or the backend has no result yet.
+            No prediction available — a valid image must be uploaded by the ESP32 before predictions are shown.
             </div>
             """,
             unsafe_allow_html=True,
@@ -225,8 +227,8 @@ with col_info:
     st.markdown("<div style='text-align:center;margin-top:10px;'>", unsafe_allow_html=True)
     # Spray button: guarded behavior
     if st.button("🚿 Send Spray Command", use_container_width=True):
-        if not has_prediction:
-            st.warning("Cannot spray: no valid prediction available.")
+        if not show_prediction:
+            st.warning("Cannot spray: no valid image/prediction available.")
         elif dose_ml and dose_ml > 0:
             try:
                 spray_resp = requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml}, timeout=5)
