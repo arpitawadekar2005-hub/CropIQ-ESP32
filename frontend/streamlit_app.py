@@ -16,7 +16,6 @@ st.set_page_config(
 
 st.title("🌿 Plant Disease Detection Dashboard")
 
-
 # Auto-refresh every 5s
 st_autorefresh(interval=5000, key="data_refresh")
 
@@ -56,33 +55,27 @@ except:
     st.error("⚠️ Backend unreachable")
 
 
-# Capture photo button
 if st.button("📸 Capture Leaf Image"):
-    r = requests.post(f"{BACKEND}/capture")
+    requests.post(f"{BACKEND}/capture")
     st.toast("📩 Capture Request Sent to ESP32")
 
 st.markdown("---")
 
 
 # ===========================================
-# B) MANUAL UPLOAD MODE
+# 2️⃣ PREDICTION INPUT MODE
 # ===========================================
-else:
-    uploaded_file = st.file_uploader("📂 Upload leaf image", type=["jpg", "jpeg", "png"])
+st.header("Latest Prediction")
 
-    if uploaded_file:
-        files = {"image": uploaded_file.getvalue()}
-        resp = requests.post(f"{BACKEND}/predict/raw", files=files)
+mode = st.radio(
+    "Choose prediction mode:",
+    ["📡 ESP32 (Live)", "🖼️ Manual Upload"],
+    horizontal=True
+)
 
-        latest_raw = resp.json()
-        img_bytes = uploaded_file.getvalue()
-        data = format_result(latest_raw)
-        dose_ml = latest_raw.get("dose_ml", 0.0)
-
-    else:
-        st.info("Upload a leaf image to start prediction.")
-        st.stop()
-
+data = None
+dose_ml = 0.0
+img_bytes = None
 
 
 # ===========================================
@@ -93,21 +86,14 @@ if mode == "📡 ESP32 (Live)":
     if st.button("🔄 Refresh ESP Data"):
         st.rerun()
 
-    try:
-        latest_raw = requests.get(f"{BACKEND}/latest").json()
-        img_bytes = requests.get(f"{BACKEND}/latest/image").content
-    except:
-        st.error("⚠️ Could not fetch data from backend")
-        st.stop()
+    latest_raw = requests.get(f"{BACKEND}/latest").json()
+    img_bytes = requests.get(f"{BACKEND}/latest/image").content
 
     if not latest_raw:
-        st.warning("No prediction yet from ESP32")
+        st.warning("No prediction yet from ESP32.")
         st.stop()
 
-    # format for UI
     data = format_result(latest_raw)
-
-    # raw spray dose
     dose_ml = latest_raw.get("dose_ml", 0.0)
 
 
@@ -115,17 +101,62 @@ if mode == "📡 ESP32 (Live)":
 # B) MANUAL UPLOAD MODE
 # ===========================================
 else:
-    uploaded_file = st.file_uploader("📂 Upload leaf image", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader(
+        "📂 Upload leaf image",
+        type=["jpg", "jpeg", "png"]
+    )
 
-    if uploaded_file:
-        # send to backend
-        files = {"image": uploaded_file.getvalue()}
-        resp = requests.post(f"{BACKEND}/predict/raw", files=files)
+    if not uploaded_file:
+        st.info("Upload a leaf image to start prediction.")
+        st.stop()
 
-        if resp.status_code == 200:
-            latest_raw = resp.json()
-            img_bytes = uploaded_file.getvalue()
-            data = format_result(latest_raw)
-            dose_ml = latest_raw.get("dose_ml", 0.0)
+    files = {"image": uploaded_file.getvalue()}
+    resp = requests.post(f"{BACKEND}/predict/raw", files=files)
+
+    latest_raw = resp.json()
+    img_bytes = uploaded_file.getvalue()
+    data = format_result(latest_raw)
+    dose_ml = latest_raw.get("dose_ml", 0.0)
+
+
+# ===========================================
+# 3️⃣ DISPLAY RESULTS (Same for ESP + Manual)
+# ===========================================
+col_img, col_info = st.columns([3, 2], gap="medium")
+
+with col_img:
+    st.markdown("<div class='img-box'>", unsafe_allow_html=True)
+    st.image(img_bytes, caption="📷 Leaf Image", use_column_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col_info:
+    st.markdown(
+        "<h3 style='text-align:center;'>🧠 Prediction Result</h3>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f"""
+        <div class="pred-box">
+        🌱 <b>Plant:</b> {data['plant']}<br><br>
+        🦠 <b>Disease:</b> {data['disease']}<br><br>
+        🎯 <b>Confidence:</b> {data['confidence']}%<br><br>
+        🔥 <b>Infection Level:</b> {data['infection']}%<br><br>
+        🧪 <b>Pesticide:</b> {data['pesticide']}<br><br>
+        💧 <b>Dose (per 100 ml):</b> {data['dose']} ml
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.write("")
+    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+
+    if st.button("🚿 Send Spray Command", use_container_width=True):
+        if dose_ml > 0:
+            requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
+            st.success(f"Spray Command Sent: {dose_ml} mL!")
         else:
-            st.error("❌ Prediction failed — backend ")
+            st.warning("Dose is 0 mL. No infection detected.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
