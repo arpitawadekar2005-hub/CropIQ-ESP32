@@ -65,20 +65,24 @@ st.markdown("---")
 
 
 # ===========================================
-# 2️⃣ LATEST PREDICTION (ESP32 + Manual Upload)
+# B) MANUAL UPLOAD MODE
 # ===========================================
-st.header("Latest Prediction")
+else:
+    uploaded_file = st.file_uploader("📂 Upload leaf image", type=["jpg", "jpeg", "png"])
 
-# Mode selector
-mode = st.radio(
-    "Choose prediction mode:",
-    ["📡 ESP32 (Live)", "🖼️ Manual Upload"],
-    horizontal=True
-)
+    if uploaded_file:
+        files = {"image": uploaded_file.getvalue()}
+        resp = requests.post(f"{BACKEND}/predict/raw", files=files)
 
-data = None
-dose_ml = 0.0
-img_bytes = None
+        latest_raw = resp.json()
+        img_bytes = uploaded_file.getvalue()
+        data = format_result(latest_raw)
+        dose_ml = latest_raw.get("dose_ml", 0.0)
+
+    else:
+        st.info("Upload a leaf image to start prediction.")
+        st.stop()
+
 
 
 # ===========================================
