@@ -77,6 +77,7 @@ if st.button("📸 Send Capture Command to ESP32", use_container_width=True):
     except RequestException:
         st.error("Could not send capture request. Backend is unreachable.")
 
+
 st.markdown("---")
 
 # ===========================================
