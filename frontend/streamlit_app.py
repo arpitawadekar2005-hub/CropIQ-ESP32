@@ -1,7 +1,12 @@
 import streamlit as st
 import requests
+import base64 
 from model_utils_frontend import format_result
 from streamlit_autorefresh import st_autorefresh
+# Import for explicit error handling
+from requests.exceptions import RequestException 
+import json # Import for JSONDecodeError
+from binascii import Error as BinasciiError # Import for specific Base64 decode errors
 
 # ===========================================
 # CONFIG
@@ -72,24 +77,61 @@ st.header("Latest Prediction from ESP32")
 if st.button("🔄 Refresh"):
     st.rerun()
 
-# Fetch data
-latest_raw = requests.get(f"{BACKEND}/latest").json()
+# --- FETCH DATA - ROBUSTNESS AGAINST BACKEND FAILURE ---
+latest_raw = {}
+img_bytes = b''
+data_fetch_error = False
 
-# 💡 FIX START: Extract the calculated dose from the backend response.
-# The backend uses the key 'dose_ml' for the raw numeric value.
-dose_ml = latest_raw.get("dose_ml") 
-# Ensure it's treated as 0.0 or a safe number if the dose is None (e.g., if the plant is healthy)
-if dose_ml is None or dose_ml == 0:
-    dose_ml = 0.0
-# 💡 FIX END
+# 1. Fetch latest prediction data (JSON)
+try:
+    response = requests.get(f"{BACKEND}/latest")
+    response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+    latest_raw = response.json()
+except (RequestException, json.JSONDecodeError) as e:
+    st.error(f"🛑 Error Fetching Prediction Data: Could not connect to the backend or received invalid JSON.")
+    data_fetch_error = True
 
-data = format_result(latest_raw)
+# 2. Fetch and Decode Image content
+try:
+    base64_img_string = requests.get(f"{BACKEND}/latest/image").text
+    
+    if not base64_img_string:
+        # Explicitly handle case where backend returns an empty string for the image
+        img_bytes = b''
+    else:
+        # Attempt to decode the Base64 string
+        img_bytes = base64.b64decode(base64_img_string)
+        
+except BinasciiError:
+    # This happens if the backend returned non-Base64 text (like an error message)
+    st.warning("Image data received was corrupt or not valid Base64.")
+    img_bytes = b''
+except RequestException:
+    # This happens if the image endpoint is unreachable or gives a connection error
+    st.warning("Could not reach the image endpoint (`/latest/image`).")
+    img_bytes = b''
+except Exception as e:
+    # Catch any other unexpected error during image handling
+    st.error(f"An unexpected error occurred while handling the image data: {e}")
+    img_bytes = b''
 
-img_bytes = requests.get(f"{BACKEND}/latest/image").content
 
-if not data:
-    st.warning("No data yet — ESP32 has not uploaded an image")
+# If prediction data fetching failed, stop the app execution here
+if data_fetch_error:
     st.stop()
+
+# 💡 Extract the calculated dose from the backend response.
+dose_ml = latest_raw.get("dose_ml") 
+if dose_ml is None:
+    dose_ml = 0.0
+
+# Ensure prediction data is not empty before proceeding
+if not latest_raw:
+    st.warning("No prediction data yet — ESP32 has not uploaded a valid result.")
+    st.stop()
+
+# We only format if we successfully fetched data
+data = format_result(latest_raw)
 
 # ===========================================
 # Layout — IMAGE LEFT / DATA RIGHT
@@ -100,7 +142,16 @@ col_img, col_info = st.columns([3,2], gap="medium")
 # ─── LEFT: IMAGE BOX ─────────────────────
 with col_img:
     st.markdown("<div class='img-box'>", unsafe_allow_html=True)
-    st.image(img_bytes, caption="📷 Leaf Image from ESP32", use_column_width=True)
+    if img_bytes:
+        # Show the image if we have valid decoded bytes
+        st.image(img_bytes, caption="📷 Leaf Image from ESP32", use_column_width=True) 
+    else:
+        # Show a placeholder message if img_bytes is empty or invalid
+        st.markdown(
+            "<div style='height:420px; display:flex; align-items:center; justify-content:center; background-color:#262730; color:#aaa; border-radius:10px;'>"
+            "<h3>🖼️ No Image Received</h3>"
+            "</div>", unsafe_allow_html=True
+        )
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -128,8 +179,9 @@ with col_info:
     st.write("")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 
-    # This line now works because dose_ml is defined above
+    # Use the dose_ml variable, ensuring it's not None
     if st.button("🚿 Send Spray Command", use_container_width=True):
+        # We ensure dose_ml is at least 0.0 earlier in the script
         if dose_ml > 0:
             requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
             st.success(f"Spray Command Sent: {dose_ml} mL!")
