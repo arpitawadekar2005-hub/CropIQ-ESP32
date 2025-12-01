@@ -43,25 +43,21 @@ st.markdown("""
 # ===========================================
 # 1️⃣ ESP32 STATUS
 # ===========================================
-st.header("ESP32 Status")
+
+st.header("ESP32 WiFi Status")
 
 try:
-    status = requests.get(f"{BACKEND}/esp-status", timeout=3).json()
-    if status["status"] == "online":
-        st.success(f"🟢 ESP32 Connected — last seen {status['last_seen']:.1f}s ago")
+    status = requests.get(f"{BACKEND}/esp-status", timeout=5).json()
+
+    if status.get("status") == "online":
+        last = status.get("last_seen", 0)
+        st.success(f"🟢 ESP32 Connected — last activity {last:.1f}s ago")
+
     else:
-        st.error("🔴 ESP32 NOT Connected")
-except Exception:
+        st.error("🔴 ESP32 NOT Connected (No recent ping or image upload)")
+
+except:
     st.error("⚠️ Backend unreachable")
-
-
-# Capture photo button
-if st.button("📸 Capture Leaf Image"):
-    requests.post(f"{BACKEND}/capture")
-    st.toast("📩 Capture Request Sent to ESP32")
-
-
-st.markdown("---")
 
 
 # ===========================================
