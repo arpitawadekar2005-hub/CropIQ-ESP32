@@ -3,7 +3,6 @@ import requests
 from model_utils_frontend import format_result
 from streamlit_autorefresh import st_autorefresh
 
-
 # ===========================================
 # CONFIG
 # ===========================================
@@ -16,7 +15,7 @@ st.set_page_config(
 
 st.title("🌿 Plant Disease Detection Dashboard")
 
-# Auto-refresh every 5 seconds
+# Auto-refresh every 5s
 st_autorefresh(interval=5000, key="data_refresh")
 
 
@@ -43,105 +42,69 @@ st.markdown("""
 # ===========================================
 # 1️⃣ ESP32 STATUS
 # ===========================================
-
-st.header("ESP32 WiFi Status")
+st.header("ESP32 Status")
 
 try:
-    status = requests.get(f"{BACKEND}/esp-status", timeout=5).json()
-
-    if status.get("status") == "online":
-        last = status.get("last_seen", 0)
-        st.success(f"🟢 ESP32 Connected — last activity {last:.1f}s ago")
-
+    status = requests.get(f"{BACKEND}/esp-status", timeout=3).json()
+    if status["status"] == "online":
+        st.success(f"🟢 ESP32 Connected — last seen {status['last_seen']:.1f}s ago")
     else:
-        st.error("🔴 ESP32 NOT Connected (No recent ping or image upload)")
-
+        st.error("🔴 ESP32 NOT Connected")
 except:
     st.error("⚠️ Backend unreachable")
 
 
-# ===========================================
-# 2️⃣ SELECT MODE
-# ===========================================
-st.header("Latest Prediction")
+# Capture photo button
+if st.button("📸 Capture Leaf Image"):
+    r = requests.post(f"{BACKEND}/capture")
+    st.toast("📩 Capture Request Sent to ESP32")
 
-mode = st.radio(
-    "Choose prediction mode:",
-    ["📡 ESP32 (Live)", "🖼️ Manual Upload"],
-    horizontal=True
-)
 
-data = None
-dose_ml = 0.0
-img_bytes = None
+st.markdown("---")
 
 
 # ===========================================
-# A) ESP32 LIVE MODE
+# 2️⃣ LATEST PREDICTION
 # ===========================================
-if mode == "📡 ESP32 (Live)":
+st.header("Latest Prediction from ESP32")
 
-    if st.button("🔄 Refresh ESP Data"):
-        st.rerun()
+# Refresh button
+if st.button("🔄 Refresh"):
+    st.rerun()
 
-    try:
-        latest_raw = requests.get(f"{BACKEND}/latest").json()
-        img_bytes = requests.get(f"{BACKEND}/latest/image").content
-    except Exception:
-        st.error("⚠️ Could not fetch data from backend.")
-        st.stop()
+# Fetch data
+latest_raw = requests.get(f"{BACKEND}/latest").json()
 
-    if not latest_raw:
-        st.warning("No prediction yet from ESP32.")
-        st.stop()
+# 💡 FIX START: Extract the calculated dose from the backend response.
+# The backend uses the key 'dose_ml' for the raw numeric value.
+dose_ml = latest_raw.get("dose_ml") 
+# Ensure it's treated as 0.0 or a safe number if the dose is None (e.g., if the plant is healthy)
+if dose_ml is None or dose_ml == 0:
+    dose_ml = 0.0
+# 💡 FIX END
 
-    data = format_result(latest_raw)
-    dose_ml = latest_raw.get("dose_ml", 0.0)
+data = format_result(latest_raw)
 
+img_bytes = requests.get(f"{BACKEND}/latest/image").content
 
-# ===========================================
-# B) MANUAL UPLOAD MODE
-# ===========================================
-else:
-    uploaded_file = st.file_uploader(
-        "📂 Upload leaf image",
-        type=["jpg", "jpeg", "png"]
-    )
-
-    if not uploaded_file:
-        st.info("Upload a leaf image to start prediction.")
-        st.stop()
-
-    files = {"image": uploaded_file.getvalue()}
-    resp = requests.post(f"{BACKEND}/predict/raw", files=files)
-
-    # --- SAFE JSON HANDLING
-    if resp.headers.get("Content-Type") != "application/json":
-        st.error(f"Backend Response:\n{resp.text}")
-        st.stop()
-
-    try:
-        latest_raw = resp.json()
-    except Exception:
-        st.error(f"Invalid JSON returned by backend:\n{resp.text}")
-        st.stop()
-
-    img_bytes = uploaded_file.getvalue()
-    data = format_result(latest_raw)
-    dose_ml = latest_raw.get("dose_ml", 0.0)
-
+if not data:
+    st.warning("No data yet — ESP32 has not uploaded an image")
+    st.stop()
 
 # ===========================================
-# 3️⃣ DISPLAY RESULT
+# Layout — IMAGE LEFT / DATA RIGHT
 # ===========================================
-col_img, col_info = st.columns([3, 2], gap="medium")
+col_img, col_info = st.columns([3,2], gap="medium")
 
+
+# ─── LEFT: IMAGE BOX ─────────────────────
 with col_img:
     st.markdown("<div class='img-box'>", unsafe_allow_html=True)
-    st.image(img_bytes, caption="📷 Leaf Image", use_column_width=True)
+    st.image(img_bytes, caption="📷 Leaf Image from ESP32", use_column_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+# ─── RIGHT: PREDICTION ───────────────────
 with col_info:
     st.markdown(
         "<h3 style='text-align:center;'>🧠 Prediction Result</h3>",
@@ -165,12 +128,12 @@ with col_info:
     st.write("")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 
-    # Spray button works for both
+    # This line now works because dose_ml is defined above
     if st.button("🚿 Send Spray Command", use_container_width=True):
         if dose_ml > 0:
             requests.post(f"{BACKEND}/spray", params={"volume_ml": dose_ml})
             st.success(f"Spray Command Sent: {dose_ml} mL!")
         else:
-            st.warning("Dose is 0 mL. No infection detected.")
+            st.warning("Cannot spray: Calculated dose is 0 mL (Plant appears healthy).")
 
     st.markdown("</div>", unsafe_allow_html=True)
