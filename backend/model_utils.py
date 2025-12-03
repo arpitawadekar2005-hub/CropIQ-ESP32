@@ -12,7 +12,7 @@ import gdown
 MODEL_PATH = os.environ.get("MODEL_PATH", "plant_disease_model.h5")
 CSV_PATH = os.environ.get("CSV_PATH", "pesticide_data.csv")
 
-DRIVE_FILE_ID = "170lylylDDiePU_pj1bfXppef6li1VMqz"  # <-- replace
+DRIVE_FILE_ID = "1xXCuUR-7yowBZLq_hGoVteGN_TLTRulG"  # <-- replace
 
 def download_model():
     """Download the model from Drive if missing."""
