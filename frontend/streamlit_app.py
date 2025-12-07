@@ -175,7 +175,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
                 """,
                 unsafe_allow_html=True,
             )
-            st.write("")
+        st.write("")
         
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
         can_spray = dose_ml > 0
