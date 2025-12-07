@@ -1,16 +1,10 @@
-
-from fastapi import FastAPI, UploadFile, File, Request, HTTPException
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, JSONResponse
-from datetime import datetime
-from typing import Optional, Tuple
-
+from fastapi.responses import Response
 import numpy as np
 import cv2
-from io import BytesIO
-from PIL import Image
-
 from model_utils import run_inference_bgr
+from datetime import datetime
 
 app = FastAPI()
 
@@ -24,71 +18,11 @@ app.add_middleware(
 # ===========================
 # STATE
 # ===========================
-latest_result: Optional[dict] = None
-latest_image: Optional[bytes] = None
-latest_image_mime: Optional[str] = None
-pending_command: Optional[dict] = None
-last_ping: Optional[datetime] = None
-last_heartbeat: Optional[datetime] = None
-
-
-# ===========================
-# HELPERS
-# ===========================
-def decode_and_infer(content: bytes) -> Tuple[dict, str]:
-    """
-    Robustly decode image bytes using Pillow, convert to OpenCV BGR,
-    run inference, and return (result_dict, mime).
-    Raises HTTPException with helpful detail on failure.
-    """
-    if not content or len(content) < 2048:  # small threshold to catch empty/truncated frames
-        raise HTTPException(status_code=400, detail=f"Empty or too-small image: {len(content)} bytes")
-
-    # Decode with Pillow (more tolerant than cv2.imdecode)
-    try:
-        pil_img = Image.open(BytesIO(content))
-        pil_img.load()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid image data: {e}")
-
-    # Detect MIME from Pillow format
-    fmt = (pil_img.format or "").upper()
-    mime = {
-        "JPEG": "image/jpeg",
-        "JPG": "image/jpeg",
-        "PNG": "image/png",
-        "WEBP": "image/webp",
-        "BMP": "image/bmp",
-        "TIFF": "image/tiff",
-    }.get(fmt, "application/octet-stream")
-
-    # Normalize to RGB (remove alpha if present)
-    if pil_img.mode in ("RGBA", "LA"):
-        bg = Image.new("RGB", pil_img.size, (255, 255, 255))
-        bg.paste(pil_img, mask=pil_img.split()[-1])
-        pil_img = bg
-    elif pil_img.mode != "RGB":
-        pil_img = pil_img.convert("RGB")
-
-    # Convert RGB PIL → BGR ndarray
-    try:
-        rgb = np.array(pil_img)
-        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to convert image to BGR: {e}")
-
-    # Run inference safely
-    try:
-        result = run_inference_bgr(bgr)
-        if not isinstance(result, dict):
-            raise ValueError("run_inference_bgr must return a dict")
-    except Exception as e:
-        # Print to server logs for debugging
-        import traceback; traceback.print_exc()
-        # Return a clear 500 error to the client
-        raise HTTPException(status_code=500, detail=f"Inference error: {e}")
-
-    return result, mime
+latest_result = None
+latest_image = None
+pending_command = None
+last_ping = None
+last_heartbeat = None
 
 
 # ===========================
@@ -96,16 +30,16 @@ def decode_and_infer(content: bytes) -> Tuple[dict, str]:
 # ===========================
 @app.post("/predict/raw")
 async def predict_raw(request: Request):
-    global latest_result, latest_image, latest_image_mime, last_ping
+    global latest_result, latest_image, last_ping
 
     content = await request.body()
-    last_ping = datetime.utcnow()
-    print(f"[predict/raw] bytes={len(content)}")  # simple diagnostic
-
-    result, mime = decode_and_infer(content)
-
     latest_image = content
-    latest_image_mime = mime
+    last_ping = datetime.utcnow()
+
+    nparr = np.frombuffer(content, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    result = run_inference_bgr(img)
     latest_result = result
 
     return {"status": "ok", "result": result}
@@ -116,15 +50,15 @@ async def predict_raw(request: Request):
 # ===========================
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    global latest_result, latest_image, latest_image_mime
+    global latest_result, latest_image
 
     content = await file.read()
-    print(f"[predict] bytes={len(content)}")
-
-    result, mime = decode_and_infer(content)
-
     latest_image = content
-    latest_image_mime = mime
+
+    nparr = np.frombuffer(content, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    result = run_inference_bgr(img)
     latest_result = result
 
     return {"status": "ok", "result": result}
@@ -141,13 +75,19 @@ def get_latest():
 @app.get("/latest/image")
 def get_latest_image():
     if latest_image:
-        return Response(latest_image, media_type=(latest_image_mime or "image/jpeg"))
-    return JSONResponse({"status": "no_image"}, status_code=404)
+        return Response(latest_image, media_type="image/jpeg")
+    return {"status": "no_image"}
 
 
 # ===========================
 # SPRAY CONTROL
 # ===========================
+# @app.post("/spray")
+# def spray(duration_ms: int = 2000):
+#     global pending_command
+#     pending_command = {"command": "start", "duration_ms": duration_ms}
+#     return {"status": "queued"}
+
 @app.post("/spray")
 def spray(volume_ml: float = 10.0):
     """
@@ -216,7 +156,6 @@ def esp_status():
 
     last_seen = min(ages)
 
-    # IMPORTANT: ensure this is a real '<', not HTML-escaped '&lt;'
     if last_seen < 20:
         return {"status": "online", "last_seen": last_seen}
 
@@ -228,19 +167,10 @@ def esp_status():
 # ===========================
 @app.post("/clear")
 def clear_state():
-    global latest_result, latest_image, latest_image_mime, pending_command, last_ping, last_heartbeat
+    global latest_result, latest_image, pending_command, last_ping, last_heartbeat
     latest_result = None
     latest_image = None
-    latest_image_mime = None
     pending_command = None
     last_ping = None
     last_heartbeat = None
     return {"status": "cleared"}
-
-
-# ===========================
-# HEALTH
-# ===========================
-@app.get("/health")
-def health():
-    return {"status": "ok", "time": datetime.utcnow().isoformat()}
