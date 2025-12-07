@@ -5,6 +5,8 @@ import numpy as np
 import cv2
 from model_utils import run_inference_bgr
 from datetime import datetime
+import io 
+from PIL import Image
 
 app = FastAPI()
 
@@ -36,14 +38,34 @@ async def predict_raw(request: Request):
     latest_image = content
     last_ping = datetime.utcnow()
 
-    nparr = np.frombuffer(content, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    try:
+        # 1. Use io.BytesIO to treat the raw content as a file
+        image_bytes = io.BytesIO(content)
+        
+        # 2. Use PIL (Pillow) to open the image from bytes (more robust than cv2)
+        pil_image = Image.open(image_bytes)
+        
+        # 3. Convert the PIL image to a NumPy array (RGB)
+        img_rgb = np.array(pil_image)
+        
+        # 4. Convert from RGB (PIL default) to BGR (OpenCV/Model default)
+        # Note: Your model might expect RGB, check your run_inference_bgr function.
+        # Assuming it expects BGR for cv2 compatibility:
+        img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
 
-    result = run_inference_bgr(img)
-    latest_result = result
+        # 5. Run inference using the BGR image
+        result = run_inference_bgr(img_bgr) # Pass the correctly formatted image
+        latest_result = result
 
-    return {"status": "ok", "result": result}
-
+        return {"status": "ok", "result": result}
+        
+    except Exception as e:
+        # Use JSONResponse to return a clear 500 error instead of a generic crash
+        print(f"CRITICAL ERROR in /predict/raw: {e}")
+        return JSONResponse(
+            status_code=500, 
+            content={"status": "error", "message": f"Failed to process image: {str(e)}"}
+        )
 
 # ===========================
 # IMAGE UPLOAD (Manual UI)
