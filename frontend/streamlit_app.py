@@ -157,8 +157,10 @@ with tab_esp:
 with tab_manual:
     st.header("Upload an Image (Manual)")
 
-    uploaded_file = st.file_uploader("Choose a leaf image", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
+    # uploaded_file = st.file_uploader("Choose a leaf image", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
 
+    uploaded_file   = st.camera_input("Take a picture", disabled=not enable)
+    
     # Optional: allow the user to provide a confidence override or extra metadata in the future
     if uploaded_file is not None:
         image_bytes = uploaded_file.getvalue()
