@@ -8,8 +8,8 @@ from model_utils_frontend import format_result  # your normalizer
 # ===========================================
 BACKEND = st.secrets["BACKEND_URL"]
 
-st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
-st.title("🌿 Plant Disease Detection Dashboard")
+# st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
+st.title("🌿 CROPIQ - Plant Disease Detection")
 
 # ===========================================
 # GLOBAL STYLES (Plant-themed CSS)
