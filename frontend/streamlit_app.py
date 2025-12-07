@@ -161,27 +161,22 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
 
     # Right: single prediction card (stacked vertically)
         st.markdown("<h3 class='pred-title'>Prediction</h3>", unsafe_allow_html=True)
-    
+        
         st.markdown(
-        f"""
-        <div class="stack">
-        <div class="pred-item">
-            <div class="v"><b>PLANT :</b> {data.get('plant', '—')}</div>
-                    </div>
-                    <div class="pred-item">
-                        <div class="v"><b>DISEASE :</b> {data.get('disease', '—')}</div>
-                    </div>
-                    <div class="pred-item">
-                        <div class="v"><b>PESTICIDE :</b> {data.get('pesticide', '—')}</div>
-                    </div>
-                    <div class="pred-item">
-                        <div class="v"><b>DOSE (per 100 ml) :</b> {data.get('dose', '0')} ml</div>
-                    </div>
+                f"""
+                <div class="pred-box">
+                🌱 <b>Plant:</b> {data.get('plant', '—')}<br><br>
+                🦠 <b>Disease:</b> {data.get('disease', '—')}<br><br>
+                🎯 <b>Confidence:</b> {data.get('confidence', '—')}%<br><br>
+                🔥 <b>Infection Level:</b> {data.get('infection', '—')}%<br><br>
+                🧪 <b>Pesticide:</b> {data.get('pesticide', '—')}<br><br>
+                💧 <b>Dose (per 100 ml):</b> {data.get('dose', '0')} ml
                 </div>
                 """,
                 unsafe_allow_html=True,
-        )
-        # Actions
+            )
+            st.write("")
+        
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
         can_spray = dose_ml > 0
         if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True, disabled=not can_spray):
