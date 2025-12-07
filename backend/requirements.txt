@@ -7,3 +7,4 @@ pandas
 tensorflow
 datetime
 gdown
+pillow
