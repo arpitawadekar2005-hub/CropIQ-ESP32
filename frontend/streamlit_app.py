@@ -12,90 +12,152 @@ st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
 st.title("🌿 Plant Disease Detection Dashboard")
 
 # ===========================================
-# GLOBAL STYLES (Plant-themed CSS)
+# GLOBAL STYLES (Plant-themed CSS with tokens)
 # ===========================================
 # 🎨 Palette — tweak these values to change the mood
-BG_MAIN = "#eef7ee"             # soft mint/green background
-BG_SIDEBAR = "#e9f3e9"          # sidebar background
-CARD_BG = "#ffffff"             # card background
-CARD_BORDER = "#cfe6cf"         # card border
-ITEM_BG = "#58855C"             # item row background
-ITEM_BORDER = "#d9ead9"         # item row border
-TEXT_HEADING = "#1f3c1f"        # dark green headings
-TEXT_BODY = "#173217"           # body text
-ACCENT = "#2e7d32"              # accent for hover/borders (matches config.toml)
-
 st.markdown(
-    f"""
+    """
     <style>
-    /* ----- App Background & Base ----- */
-    html, body, [data-testid="stAppViewContainer"] {{
-        background-color: {BG_MAIN};
-    }}
-    [data-testid="stSidebar"] > div {{
-        background-color: {BG_SIDEBAR};
-    }}
+    /* =======================
+       🎨 Color Tokens
+       ======================= */
+    :root {
+      /* App backgrounds */
+      --bg-main:            #eef7ee;  /* page background */
+      --bg-sidebar:         #e9f3e9;  /* sidebar background */
 
-    /* ----- Cards and Image ----- */
-    .img-box {{
-        border: 1px solid {CARD_BORDER};
+      /* Card + item surfaces */
+      --card-bg:            #f6fbf6;  /* prediction card background (slightly lighter) */
+      --card-border:        #b9ddb9;  /* prediction card border */
+
+      /* 👉 Item rows slightly DARKER than page background */
+      --item-bg:            #e1f0e1;  /* plant/disease/pesticide/dose row background */
+      --item-border:        #a9cea9;  /* row border */
+
+      /* Text */
+      --text-heading:       #1f3c1f;  /* headings */
+      --text-body:          #173217;  /* body text */
+      --text-muted:         #517a51;  /* captions */
+
+      /* Accents / buttons / focus */
+      --accent:             #2e7d32;  /* green accent */
+      --accent-weak:        #95c89a;  /* soft accent for focus/hover outlines */
+
+      /* Shadows */
+      --shadow-100:         0 1px 2px rgba(16, 24, 40, 0.06);
+    }
+
+    /* =======================
+       Base surfaces
+       ======================= */
+    html, body, [data-testid="stAppViewContainer"] {
+        background-color: var(--bg-main);
+    }
+    [data-testid="stSidebar"] > div {
+        background-color: var(--bg-sidebar);
+    }
+
+    /* =======================
+       Cards & Image containers
+       ======================= */
+    .img-box {
+        border: 1px solid var(--card-border);
         border-radius: 12px;
         overflow: hidden;
-        background: {CARD_BG};
-    }}
-    .pred-card {{
-        border: 1px solid {CARD_BORDER};
+        background: #ffffff;
+        box-shadow: var(--shadow-100);
+    }
+    .pred-card {
+        border: 1px solid var(--card-border);
         border-radius: 12px;
         padding: 16px;
-        background: {CARD_BG};
-        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
-    }}
-    .pred-title {{
+        background: var(--card-bg);
+        box-shadow: var(--shadow-100);
+    }
+    .pred-title {
         text-align:center;
         margin: 0 0 12px 0;
-        font-weight: 700;
-        color: {TEXT_HEADING};
-    }}
+        font-weight: 800;
+        color: var(--text-heading);
+    }
 
-    /* ----- Single stacked details inside one card ----- */
-    .stack {{
+    /* =======================
+       Stacked item rows (darker than bg)
+       ======================= */
+    .stack {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-    }}
-    .pred-item {{
-        background: {ITEM_BG};
-        border: 1px solid {ITEM_BORDER};
-        border-radius: 10px;
-        padding: 10px 12px;
-    }}
-    .pred-item b {{
+        gap: 12px;
+    }
+    .pred-item {
+        background: var(--item-bg);
+        border: 1px solid var(--item-border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        transition: border-color .15s ease, background-color .15s ease;
+    }
+    .pred-item:hover {
+        border-color: var(--accent-weak);
+        /* fallback for old browsers is same bg; color-mix supported in modern engines */
+        background: color-mix(in oklab, var(--item-bg) 92%, black 8%);
+    }
+    .pred-item b {
         display: block;
-        font-size: 0.9rem;
-        color: #355f35;
+        font-size: 0.92rem;
+        color: var(--text-heading);
         margin-bottom: 6px;
-    }}
-    .pred-item .v {{
-        font-size: 1.05rem;
-        color: {TEXT_BODY};
+    }
+    .pred-item .v {
+        font-size: 1.06rem;
+        color: var(--text-body);
         word-break: break-word;
-    }}
+    }
 
-    /* ----- Actions ----- */
-    .actions {{ margin-top: 12px; }}
-    .actions .caption {{ color: #517a51; font-size: 0.9rem; }}
+    /* =======================
+       Actions (spray button)
+       ======================= */
+    .actions { margin-top: 14px; }
+    .actions .caption { color: var(--text-muted); font-size: 0.92rem; }
 
-    /* ----- Buttons & headings ----- */
-    .stButton>button {{
-        border-radius: 10px;
-        border: 1px solid {CARD_BORDER};
-        background-color: {CARD_BG};
-        color: {TEXT_BODY};
-    }}
-    .stButton>button:hover {{
-        border-color: {ACCENT};
-    }}
-    h1, h2, h3 {{ color: {TEXT_HEADING}; }}
+    .stButton>button {
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
+        background-color: #ffffff !important;
+        color: var(--text-body) !important;
+        box-shadow: var(--shadow-100) !important;
+    }
+    .stButton>button:hover {
+        border-color: var(--accent) !important;
+    }
+    .stButton>button:disabled,
+    .stButton>button[disabled] {
+        opacity: .65 !important;
+        cursor: not-allowed !important;
+    }
+
+    /* =======================
+       Headings
+       ======================= */
+    h1, h2, h3 { color: var(--text-heading); }
+
+    /* =======================
+       ESP Status badges
+       ======================= */
+    .status-row { display:flex; gap: 10px; align-items:center; margin-bottom: 10px; flex-wrap: wrap; }
+    .badge {
+      display:inline-flex; align-items:center; gap:6px;
+      padding: 6px 10px; border-radius: 999px;
+      border: 1px solid var(--item-border);
+      background: var(--item-bg);
+      color: var(--text-body);
+      font-size: 0.92rem;
+      box-shadow: var(--shadow-100);
+    }
+    .badge .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .dot-green { background:#22c55e; }
+    .dot-red   { background:#ef4444; }
+    .dot-gray  { background:#9ca3af; }
+    .badge small { color: var(--text-muted); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -115,19 +177,23 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 # ===========================================
-# OPTIONAL: rotate helper if your camera images appear upside-down
-# Uncomment and use if needed
-# from io import BytesIO
-# from PIL import Image
-# def rotate_bytes_180(img_bytes: bytes) -> bytes:
-#     try:
-#         im = Image.open(BytesIO(img_bytes))
-#         im = im.rotate(180, expand=True)
-#         out = BytesIO()
-#         im.save(out, format="JPEG", quality=90)
-#         return out.getvalue()
-#     except Exception:
-#         return img_bytes  # fallback
+# ESP status helper (cached)
+# ===========================================
+@st.cache_data(ttl=5, show_spinner=False)
+def get_esp_status():
+    """
+    Returns a dict with keys:
+      - status: 'online' | 'offline' | 'unknown'
+      - last_seen: float seconds (may be absent)
+      - reason: string (optional)
+    """
+    try:
+        resp = requests.get(f"{BACKEND}/esp-status", timeout=4)
+        if resp.ok:
+            return resp.json()
+        return {"status": "unknown", "reason": f"http {resp.status_code}"}
+    except Exception as e:
+        return {"status": "unknown", "reason": str(e)}
 
 # ===========================================
 # SHARED RENDERER: STACKED SINGLE CARD
@@ -215,6 +281,29 @@ tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 # ---------------------------
 with tab_esp:
     st.header("ESP32 Status & Latest Prediction")
+
+    # --- Status badges row ---
+    status = get_esp_status()
+    state = status.get("status", "unknown")
+    last_seen = status.get("last_seen", None)
+    reason = status.get("reason")
+
+    st.markdown("<div class='status-row'>", unsafe_allow_html=True)
+    if state == "online":
+        st.markdown("<span class='badge'><span class='dot dot-green'></span> ESP32: Online</span>", unsafe_allow_html=True)
+    elif state == "offline":
+        st.markdown("<span class='badge'><span class='dot dot-red'></span> ESP32: Offline</span>", unsafe_allow_html=True)
+    else:
+        st.markdown("<span class='badge'><span class='dot dot-gray'></span> ESP32: Unknown</span>", unsafe_allow_html=True)
+
+    if isinstance(last_seen, (int, float)):
+        st.markdown(f"<span class='badge'>⏱️ Last seen: {last_seen:.1f}s</span>", unsafe_allow_html=True)
+
+    if reason:
+        st.markdown(f"<span class='badge'>ℹ️ {reason}</span>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- Action buttons ---
     top_cols = st.columns(2)
     with top_cols[0]:
         if st.button("📸 Capture Leaf Image", use_container_width=True):
@@ -270,8 +359,7 @@ with tab_manual:
     # Store image ONLY when a new one is captured (no extra preview here)
     if uploaded_file is not None:
         raw_bytes = uploaded_file.getvalue()
-        # If you need rotation due to upside-down camera, uncomment:
-        # raw_bytes = rotate_bytes_180(raw_bytes)
+        # If your camera images appear flipped, add rotate helper & apply here
         st.session_state.manual_image = raw_bytes
         st.session_state.manual_result = None  # Reset only when new image arrives
 
