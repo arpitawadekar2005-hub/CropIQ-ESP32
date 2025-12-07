@@ -3,6 +3,15 @@ import requests
 from model_utils_frontend import format_result
 from streamlit_autorefresh import st_autorefresh
 
+# -------------------------
+# SESSION STATE
+# -------------------------
+if "manual_result" not in st.session_state:
+    st.session_state.manual_result = None
+
+if "manual_image" not in st.session_state:
+    st.session_state.manual_image = None
+
 # ===========================================
 # CONFIG
 # ===========================================
@@ -17,7 +26,6 @@ st.title("🌿 Plant Disease Detection Dashboard")
 
 # Auto-refresh every 5s (keeps ESP tab up-to-date)
 st_autorefresh(interval=5000, key="data_refresh")
-
 
 # ===========================================
 # STYLE
@@ -38,25 +46,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ===========================================
 # TABS: ESP32 | Manual Upload
 # ===========================================
 tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 
-
 # -------------------------
 # Helper: render prediction UI (shared)
 # -------------------------
-def render_prediction_ui(image_bytes, result_raw):
-    """Render image + prediction panel + spray button.
-    result_raw is the raw backend response (dict) that format_result can consume.
-    Returns nothing.
-    """
-    # Extract numeric dose value (backend may provide dose_ml)
+def render_prediction_ui(image_bytes, result_raw, btn_key):
+    """Render image + prediction panel + spray button."""
+
     dose_ml = result_raw.get("dose_ml") if isinstance(result_raw, dict) else None
     if dose_ml is None:
-        # fall back to 0.0 if missing or zero-like
         dose_ml = 0.0
 
     data = format_result(result_raw)
@@ -95,8 +97,7 @@ def render_prediction_ui(image_bytes, result_raw):
         st.write("")
         st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 
-        # Spray button behaviour is identical for both tabs
-        if st.button("🚿 Send Spray Command", use_container_width=True):
+        if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True):
             if dose_ml and float(dose_ml) > 0:
                 try:
                     requests.post(f"{BACKEND}/spray", params={"volume_ml": float(dose_ml)})
@@ -108,14 +109,12 @@ def render_prediction_ui(image_bytes, result_raw):
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-
 # ===========================================
-# TAB: ESP32 (keeps original behaviour)
+# TAB: ESP32
 # ===========================================
 with tab_esp:
     st.header("ESP32 Status & Latest Prediction")
 
-    # ESP32 status check
     try:
         status = requests.get(f"{BACKEND}/esp-status", timeout=3).json()
         if status.get("status") == "online":
@@ -127,7 +126,6 @@ with tab_esp:
 
     st.write("")
 
-    # Capture photo button (same as before)
     if st.button("📸 Capture Leaf Image"):
         try:
             requests.post(f"{BACKEND}/capture")
@@ -137,19 +135,21 @@ with tab_esp:
 
     st.markdown("---")
 
-    # Refresh control
     if st.button("🔄 Refresh"):
         st.rerun()
 
-    # Fetch latest prediction from backend
     try:
         latest_raw = requests.get(f"{BACKEND}/latest", timeout=4).json()
-        # image bytes come from a specific endpoint
-        img_bytes = requests.get(f"{BACKEND}/latest/image", timeout=4).content
-        render_prediction_ui(img_bytes, latest_raw)
+
+        # ✅ SAFE ESP DISPLAY (even if backend has no "source")
+        if latest_raw:
+            img_bytes = requests.get(f"{BACKEND}/latest/image", timeout=4).content
+            render_prediction_ui(img_bytes, latest_raw, btn_key="spray_esp")
+        else:
+            st.info("Waiting for image from ESP32 device...")
+
     except Exception as e:
         st.warning(f"Could not fetch latest data: {e}")
-
 
 # ===========================================
 # TAB: MANUAL UPLOAD
@@ -157,48 +157,33 @@ with tab_esp:
 with tab_manual:
     st.header("Upload an Image (Manual)")
 
-    # uploaded_file = st.file_uploader("Choose a leaf image", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
+    uploaded_file = st.camera_input("Take a picture")
 
-    uploaded_file   = st.camera_input("Take a picture")
-    
-    # Optional: allow the user to provide a confidence override or extra metadata in the future
     if uploaded_file is not None:
         image_bytes = uploaded_file.getvalue()
+        st.session_state.manual_image = image_bytes
+
         st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
 
         if st.button("🔎 Predict from Uploaded Image"):
             try:
-                # <- IMPORTANT: backend expects field name "file"
                 files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
                 resp = requests.post(f"{BACKEND}/predict", files=files, timeout=15)
+
+                if resp.ok:
+                    resp_json = resp.json()
+                    st.session_state.manual_result = resp_json["result"]
+                else:
+                    st.error("Prediction failed")
+
             except Exception as e:
                 st.error(f"Failed to send request: {e}")
-            else:
-                st.write("Status code:", resp.status_code)
-                st.write("Response headers:", dict(resp.headers))
-                st.code(resp.text, language="json")
 
-                if not resp.ok:
-                    st.error(f"Backend returned {resp.status_code}. See raw response above.")
-                else:
-                    # Backend returns {"status":"ok","result": <your result dict>}
-                    try:
-                        resp_json = resp.json()
-                    except Exception as e:
-                        st.error(f"Response is not valid JSON: {e}")
-                        st.stop()
+    if st.session_state.manual_result and st.session_state.manual_image:
+        st.markdown("---")
+        render_prediction_ui(
+            st.session_state.manual_image,
+            st.session_state.manual_result,
+            btn_key="spray_manual"
+        )
 
-                    if resp_json.get("status") != "ok" or "result" not in resp_json:
-                        st.error("Unexpected response shape from backend; see raw response above.")
-                    else:
-                        result_raw = resp_json["result"]
-                        # render the same UI as ESP tab using the unwrapped result
-                        render_prediction_ui(image_bytes, result_raw)
-
-
-
-# ===========================================
-# FOOTER / NOTES
-# ===========================================
-st.markdown("---")
-st.caption("Tabs: ESP32 (live device) | Manual Upload (send your own image to model). Spray command behavior is identical in both tabs.")
