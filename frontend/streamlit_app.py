@@ -162,11 +162,11 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
     # Right: single prediction card (stacked vertically)
         st.markdown("<h3 class='pred-title'>Prediction</h3>", unsafe_allow_html=True)
     
-            st.markdown(
-                f"""
-                <div class="stack">
-                    <div class="pred-item">
-                        <div class="v"><b>PLANT :</b> {data.get('plant', '—')}</div>
+        st.markdown(
+        f"""
+        <div class="stack">
+        <div class="pred-item">
+            <div class="v"><b>PLANT :</b> {data.get('plant', '—')}</div>
                     </div>
                     <div class="pred-item">
                         <div class="v"><b>DISEASE :</b> {data.get('disease', '—')}</div>
@@ -180,7 +180,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
                 </div>
                 """,
                 unsafe_allow_html=True,
-            )
+        )
         # Actions
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
         can_spray = dose_ml > 0
