@@ -1,8 +1,6 @@
-
 import streamlit as st
 import requests
 from model_utils_frontend import format_result
-from streamlit_autorefresh import st_autorefresh
 
 # ===========================================
 # CONFIG
@@ -15,11 +13,6 @@ st.set_page_config(
 )
 
 st.title("🌿 Plant Disease Detection Dashboard")
-
-# Auto-refresh every 5s (keeps ESP tab up-to-date)
-# Note: This refreshes the whole page. If you want it only while the ESP tab is selected,
-# we can add a query param or radio to conditionally enable this timer.
-st_autorefresh(interval=5000, key="data_refresh")
 
 # ===========================================
 # STYLE
@@ -46,7 +39,6 @@ st.markdown(
 # ===========================================
 # SESSION STATE
 # ===========================================
-# Keep ESP and Manual states separate to avoid cross-tab side effects
 for key, default in [
     ("esp_result", None),
     ("esp_image", None),
@@ -62,13 +54,12 @@ for key, default in [
 def render_prediction_ui(image_bytes, result_raw, btn_key: str):
     """Render image + prediction panel + spray button."""
     try:
-        dose_ml = None
+        dose_ml = 0.0
         if isinstance(result_raw, dict):
-            dose_ml = result_raw.get("dose_ml")
-        if dose_ml is None:
-            dose_ml = 0.0
+            # Backend may provide dose_ml (numeric), otherwise it will be 0.0
+            dose_ml = float(result_raw.get("dose_ml") or 0.0)
 
-        data = format_result(result_raw)  # expected to return normalized fields
+        data = format_result(result_raw)  # normalized fields dict
         if not data:
             st.warning("No data available for this image / response")
             return
@@ -105,7 +96,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
 
             if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True):
                 try:
-                    vol = float(dose_ml) if dose_ml is not None else 0.0
+                    vol = max(0.0, float(dose_ml))
                     if vol > 0:
                         requests.post(f"{BACKEND}/spray", params={"volume_ml": vol}, timeout=6)
                         st.success(f"Spray Command Sent: {vol:.1f} mL!")
@@ -132,10 +123,10 @@ with tab_esp:
 
     # Status
     try:
-        status = requests.get(f"{BACKEND}/esp-status", timeout=3).json()
+        status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
+        status = status_resp.json() if status_resp.ok else {"status": "unknown"}
         if status.get("status") == "online":
             last_seen = status.get("last_seen")
-            # Show seconds if numeric, else show as text
             if isinstance(last_seen, (int, float)):
                 st.success(f"🟢 ESP32 Connected — last seen {last_seen:.1f}s ago")
             else:
@@ -147,7 +138,6 @@ with tab_esp:
 
     st.write("")
 
-    # Controls
     colA, colB = st.columns(2)
     with colA:
         if st.button("📸 Capture Leaf Image", use_container_width=True):
@@ -156,6 +146,7 @@ with tab_esp:
                 st.toast("📩 Capture Request Sent to ESP32")
             except Exception as e:
                 st.error(f"Failed to request capture: {e}")
+
     with colB:
         if st.button("🔄 Refresh", use_container_width=True):
             st.rerun()
@@ -164,18 +155,19 @@ with tab_esp:
 
     # Latest prediction & image from ESP
     try:
-        latest_raw = requests.get(f"{BACKEND}/latest", timeout=5).json()
+        latest_resp = requests.get(f"{BACKEND}/latest", timeout=5)
+        latest_raw = latest_resp.json() if latest_resp.ok else None
+
         if latest_raw:
             img_resp = requests.get(f"{BACKEND}/latest/image", timeout=5)
             if img_resp.ok:
-                img_bytes = img_resp.content
-                st.session_state.esp_image = img_bytes
+                st.session_state.esp_image = img_resp.content
                 st.session_state.esp_result = latest_raw
                 render_prediction_ui(st.session_state.esp_image, st.session_state.esp_result, btn_key="spray_esp")
             else:
                 st.warning(f"Could not fetch latest image (status: {img_resp.status_code})")
         else:
-            # If previously had a result, show it (in case backend is briefly empty)
+            # If previously had a result, show cached while waiting
             if st.session_state.esp_image and st.session_state.esp_result:
                 render_prediction_ui(st.session_state.esp_image, st.session_state.esp_result, btn_key="spray_esp_cached")
             else:
@@ -194,30 +186,26 @@ with tab_esp:
 with tab_manual:
     st.header("Upload an Image (Manual)")
 
-    # Use a form to avoid multiple reruns while predicting
+    # Use a form to control submission and avoid rerun side effects
     with st.form("manual_predict_form", clear_on_submit=False):
+        # NOTE: st.camera_input shows the camera preview by design.
+        # We will NOT call st.image() ourselves to avoid duplicates.
         uploaded_file = st.camera_input("Take a picture")
-        # If you'd like file upload from gallery as well, add:
-        # uploaded_file_gallery = st.file_uploader("Or choose from files", type=["jpg","jpeg","png"])
-
         submitted = st.form_submit_button("🔎 Predict from Uploaded Image")
 
-    # If a new image was captured, store in session and show preview
+    # If a new image was captured, store it; DO NOT show extra preview
     if uploaded_file is not None:
-        image_bytes = uploaded_file.getvalue()
-        st.session_state.manual_image = image_bytes
-        st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
-        # Reset result on new image
+        st.session_state.manual_image = uploaded_file.getvalue()
+        # Reset result only when a new image arrives
         st.session_state.manual_result = None
 
-    # Handle prediction when submitted
+    # Predict only when the button is pressed
     if submitted:
         if st.session_state.manual_image is None:
-            st.warning("Please capture or upload an image first.")
+            st.warning("Please capture an image first.")
         else:
             with st.spinner("Processing prediction..."):
                 try:
-                    # The camera_input returns a default name/type, handle gracefully
                     file_name = getattr(uploaded_file, "name", "camera.jpg") if uploaded_file else "camera.jpg"
                     file_type = getattr(uploaded_file, "type", "image/jpeg") if uploaded_file else "image/jpeg"
                     files = {"file": (file_name, st.session_state.manual_image, file_type)}
@@ -225,8 +213,7 @@ with tab_manual:
                     resp = requests.post(f"{BACKEND}/predict", files=files, timeout=30)
                     if resp.ok:
                         resp_json = resp.json()
-                        result = resp_json.get("result", {})
-                        st.session_state.manual_result = result
+                        st.session_state.manual_result = resp_json.get("result", {})
                         st.success("Prediction successful!")
                     else:
                         st.error(f"Prediction failed. Status code: {resp.status_code}")
@@ -235,7 +222,7 @@ with tab_manual:
                     st.error(f"Failed to send request or unexpected error: {e}")
                     st.session_state.manual_result = None
 
-    # Render result if available, even on reruns (no need to click again)
+    # Render prediction result (only once, no extra manual preview)
     if st.session_state.manual_result and st.session_state.manual_image:
         st.markdown("---")
         render_prediction_ui(
