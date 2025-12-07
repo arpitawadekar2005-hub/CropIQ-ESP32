@@ -107,11 +107,11 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
         st.markdown("<h3 class='pred-title'>🧠 Prediction</h3>", unsafe_allow_html=True)
 
         # KPI quick glance
-        k1, k2 = st.columns(2)
-        with k1:
-            kpi_card("🎯 Confidence", f"{data.get('confidence', '—')}%")
-        with k2:
-            kpi_card("🔥 Infection Level", f"{data.get('infection', '—')}%")
+        # k1, k2 = st.columns(2)
+        # with k1:
+        #     kpi_card("🎯 Confidence", f"{data.get('confidence', '—')}%")
+        # with k2:
+        #     kpi_card("🔥 Infection Level", f"{data.get('infection', '—')}%")
 
         st.markdown("")
         # Details grid
