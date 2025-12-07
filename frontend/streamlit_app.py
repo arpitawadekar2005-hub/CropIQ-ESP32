@@ -2,7 +2,7 @@
 import streamlit as st
 import requests
 from model_utils_frontend import format_result  # your normalizer
-
+import streamlit.components.v1 as components
 # ===========================================
 # CONFIG
 # ===========================================
@@ -186,7 +186,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
         #     """,
         #     unsafe_allow_html=True,
         # )
-        st.markdown(
+        components.html(
         f"""
         <div class="stack">
             <div class="pred-item">
@@ -206,9 +206,8 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
             </div>
         </div>
         """,
-        unsafe_allow_html=True,
+        height=260,
         )
-
 
         # Actions
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
