@@ -1,165 +1,241 @@
+
 import streamlit as st
 import requests
-from model_utils_frontend import format_result
+from model_utils_frontend import format_result  # your normalizer
 
 # ===========================================
 # CONFIG
 # ===========================================
 BACKEND = st.secrets["BACKEND_URL"]
 
-st.set_page_config(
-    page_title="Plant Disease Dashboard",
-    layout="wide",
-)
-
+st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
 st.title("🌿 Plant Disease Detection Dashboard")
 
 # ===========================================
-# STYLE
+# GLOBAL STYLES (Plant-themed CSS)
 # ===========================================
+# 🎨 Palette — tweak these values to change the mood
+BG_MAIN = "#eef7ee"             # soft mint/green background
+BG_SIDEBAR = "#e9f3e9"          # sidebar background
+CARD_BG = "#ffffff"             # card background
+CARD_BORDER = "#cfe6cf"         # card border
+ITEM_BG = "#f2faf2"             # item row background
+ITEM_BORDER = "#d9ead9"         # item row border
+TEXT_HEADING = "#1f3c1f"        # dark green headings
+TEXT_BODY = "#173217"           # body text
+ACCENT = "#2e7d32"              # accent for hover/borders (matches config.toml)
+
 st.markdown(
-    """
+    f"""
     <style>
-    .img-box {
-        border: 1px solid #444;
-        border-radius: 10px;
+    /* ----- App Background & Base ----- */
+    html, body, [data-testid="stAppViewContainer"] {{
+        background-color: {BG_MAIN};
+    }}
+    [data-testid="stSidebar"] > div {{
+        background-color: {BG_SIDEBAR};
+    }}
+
+    /* ----- Cards and Image ----- */
+    .img-box {{
+        border: 1px solid {CARD_BORDER};
+        border-radius: 12px;
         overflow: hidden;
-        max-height: 420px;
-    }
-    .pred-box {
+        background: {CARD_BG};
+    }}
+    .pred-card {{
+        border: 1px solid {CARD_BORDER};
+        border-radius: 12px;
+        padding: 16px;
+        background: {CARD_BG};
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+    }}
+    .pred-title {{
         text-align:center;
-        font-size:18px;
-        padding: 10px;
-    }
+        margin: 0 0 12px 0;
+        font-weight: 700;
+        color: {TEXT_HEADING};
+    }}
+
+    /* ----- Single stacked details inside one card ----- */
+    .stack {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }}
+    .pred-item {{
+        background: {ITEM_BG};
+        border: 1px solid {ITEM_BORDER};
+        border-radius: 10px;
+        padding: 10px 12px;
+    }}
+    .pred-item b {{
+        display: block;
+        font-size: 0.9rem;
+        color: #355f35;
+        margin-bottom: 6px;
+    }}
+    .pred-item .v {{
+        font-size: 1.05rem;
+        color: {TEXT_BODY};
+        word-break: break-word;
+    }}
+
+    /* ----- Actions ----- */
+    .actions {{ margin-top: 12px; }}
+    .actions .caption {{ color: #517a51; font-size: 0.9rem; }}
+
+    /* ----- Buttons & headings ----- */
+    .stButton>button {{
+        border-radius: 10px;
+        border: 1px solid {CARD_BORDER};
+        background-color: {CARD_BG};
+        color: {TEXT_BODY};
+    }}
+    .stButton>button:hover {{
+        border-color: {ACCENT};
+    }}
+    h1, h2, h3 {{ color: {TEXT_HEADING}; }}
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # ===========================================
-# SESSION STATE
+# SESSION STATE (kept separate per tab)
 # ===========================================
-for key, default in [
-    ("esp_result", None),
-    ("esp_image", None),
-    ("manual_result", None),
-    ("manual_image", None),
-]:
-    if key not in st.session_state:
-        st.session_state[key] = default
+defaults = {
+    "esp_result": None,
+    "esp_image": None,
+    "manual_result": None,
+    "manual_image": None,
+}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-# -------------------------
-# Helper: render prediction UI (shared)
-# -------------------------
+# ===========================================
+# OPTIONAL: rotate helper if your camera images appear upside-down
+# Uncomment and use if needed
+# from io import BytesIO
+# from PIL import Image
+# def rotate_bytes_180(img_bytes: bytes) -> bytes:
+#     try:
+#         im = Image.open(BytesIO(img_bytes))
+#         im = im.rotate(180, expand=True)
+#         out = BytesIO()
+#         im.save(out, format="JPEG", quality=90)
+#         return out.getvalue()
+#     except Exception:
+#         return img_bytes  # fallback
+
+# ===========================================
+# SHARED RENDERER: STACKED SINGLE CARD
+# ===========================================
 def render_prediction_ui(image_bytes, result_raw, btn_key: str):
-    """Render image + prediction panel + spray button."""
-    try:
-        dose_ml = 0.0
-        if isinstance(result_raw, dict):
-            # Backend may provide dose_ml (numeric), otherwise it will be 0.0
+    """
+    Renders image (left) and a single stacked prediction card (right).
+    Details shown: Plant, Disease, Pesticide, Dose (per 100 ml).
+    Confidence/Infection are intentionally omitted.
+    """
+    # dose_ml used to enable/disable spray button
+    dose_ml = 0.0
+    if isinstance(result_raw, dict):
+        try:
             dose_ml = float(result_raw.get("dose_ml") or 0.0)
+        except Exception:
+            dose_ml = 0.0
 
-        data = format_result(result_raw)  # normalized fields dict
-        if not data:
-            st.warning("No data available for this image / response")
-            return
+    data = format_result(result_raw)  # Expect keys: plant, disease, pesticide, dose
+    if not data:
+        st.warning("No data available for this image / response.")
+        return
 
-        col_img, col_info = st.columns([3, 2], gap="medium")
+    col_img, col_info = st.columns([3, 2], gap="large")
 
-        with col_img:
-            st.markdown("<div class='img-box'>", unsafe_allow_html=True)
-            st.image(image_bytes, caption="📷 Leaf Image", use_column_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+    # Left: image
+    with col_img:
+        st.markdown("<div class='img-box'>", unsafe_allow_html=True)
+        st.image(image_bytes, caption="📷 Leaf Image", use_column_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        with col_info:
-            st.markdown(
-                "<h3 style='text-align:center;'>🧠 Prediction Result</h3>",
-                unsafe_allow_html=True,
-            )
+    # Right: single prediction card (stacked vertically)
+    with col_info:
+        st.markdown("<div class='pred-card'>", unsafe_allow_html=True)
+        st.markdown("<h3 class='pred-title'>🧠 Prediction</h3>", unsafe_allow_html=True)
 
-            st.markdown(
-                f"""
-                <div class="pred-box">
-                🌱 <b>Plant:</b> {data.get('plant', '—')}<br><br>
-                🦠 <b>Disease:</b> {data.get('disease', '—')}<br><br>
-                🎯 <b>Confidence:</b> {data.get('confidence', '—')}%<br><br>
-                🔥 <b>Infection Level:</b> {data.get('infection', '—')}%<br><br>
-                🧪 <b>Pesticide:</b> {data.get('pesticide', '—')}<br><br>
-                💧 <b>Dose (per 100 ml):</b> {data.get('dose', '0')} ml
+        st.markdown(
+            f"""
+            <div class="stack">
+                <div class="pred-item">
+                    <b>🌱 Plant</b>
+                    <div class="v">{data.get('plant', '—')}</div>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                <div class="pred-item">
+                    <b>🦠 Disease</b>
+                    <div class="v">{data.get('disease', '—')}</div>
+                </div>
+                <div class="pred-item">
+                    <b>🧪 Pesticide</b>
+                    <div class="v">{data.get('pesticide', '—')}</div>
+                </div>
+                <div class="pred-item">
+                    <b>💧 Dose (per 100 ml)</b>
+                    <div class="v">{data.get('dose', '0')} ml</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-            st.write("")
-            st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+        # Actions
+        st.markdown("<div class='actions'>", unsafe_allow_html=True)
+        can_spray = dose_ml > 0
+        if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True, disabled=not can_spray):
+            try:
+                requests.post(f"{BACKEND}/spray", params={"volume_ml": float(dose_ml)}, timeout=8)
+                st.success(f"Spray command sent: {float(dose_ml):.1f} mL")
+                st.toast("✅ Spray queued")
+            except Exception as e:
+                st.error(f"Failed to send spray command: {e}")
 
-            if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True):
-                try:
-                    vol = max(0.0, float(dose_ml))
-                    if vol > 0:
-                        requests.post(f"{BACKEND}/spray", params={"volume_ml": vol}, timeout=6)
-                        st.success(f"Spray Command Sent: {vol:.1f} mL!")
-                    else:
-                        st.warning("Cannot spray: Calculated dose is 0 mL (Plant appears healthy).")
-                except Exception as e:
-                    st.error(f"Failed to send spray command: {e}")
+        if not can_spray:
+            st.caption("Spray disabled because recommended dose is 0 mL.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"Failed to render prediction UI: {e}")
+        st.markdown("</div>", unsafe_allow_html=True)  # end pred-card
 
 # ===========================================
-# TABS: ESP32 | Manual Upload
+# TABS
 # ===========================================
 tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 
-# ===========================================
+# ---------------------------
 # TAB: ESP32
-# ===========================================
+# ---------------------------
 with tab_esp:
     st.header("ESP32 Status & Latest Prediction")
-
-    # Status
-    try:
-        status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
-        status = status_resp.json() if status_resp.ok else {"status": "unknown"}
-        if status.get("status") == "online":
-            last_seen = status.get("last_seen")
-            if isinstance(last_seen, (int, float)):
-                st.success(f"🟢 ESP32 Connected — last seen {last_seen:.1f}s ago")
-            else:
-                st.success("🟢 ESP32 Connected")
-        else:
-            st.error("🔴 ESP32 NOT Connected")
-    except Exception:
-        st.error("⚠️ Backend unreachable")
-
-    st.write("")
-
-    colA, colB = st.columns(2)
-    with colA:
+    top_cols = st.columns(2)
+    with top_cols[0]:
         if st.button("📸 Capture Leaf Image", use_container_width=True):
             try:
-                requests.post(f"{BACKEND}/capture", timeout=5)
-                st.toast("📩 Capture Request Sent to ESP32")
+                requests.post(f"{BACKEND}/capture", timeout=6)
+                st.toast("📩 Capture requested")
             except Exception as e:
                 st.error(f"Failed to request capture: {e}")
-
-    with colB:
+    with top_cols[1]:
         if st.button("🔄 Refresh", use_container_width=True):
             st.rerun()
 
     st.markdown("---")
 
-    # Latest prediction & image from ESP
+    # Fetch and show latest ESP result
     try:
-        latest_resp = requests.get(f"{BACKEND}/latest", timeout=5)
+        latest_resp = requests.get(f"{BACKEND}/latest", timeout=6)
         latest_raw = latest_resp.json() if latest_resp.ok else None
 
-        if latest_raw:
-            img_resp = requests.get(f"{BACKEND}/latest/image", timeout=5)
+        if latest_raw and isinstance(latest_raw, dict) and latest_raw.get("status") != "no_data":
+            img_resp = requests.get(f"{BACKEND}/latest/image", timeout=6)
             if img_resp.ok:
                 st.session_state.esp_image = img_resp.content
                 st.session_state.esp_result = latest_raw
@@ -167,41 +243,41 @@ with tab_esp:
             else:
                 st.warning(f"Could not fetch latest image (status: {img_resp.status_code})")
         else:
-            # If previously had a result, show cached while waiting
+            # Show cached if present
             if st.session_state.esp_image and st.session_state.esp_result:
+                st.info("Showing cached ESP32 result")
                 render_prediction_ui(st.session_state.esp_image, st.session_state.esp_result, btn_key="spray_esp_cached")
             else:
                 st.info("Waiting for image from ESP32 device...")
     except Exception as e:
-        # Fallback to cached if available
         if st.session_state.esp_image and st.session_state.esp_result:
-            st.warning(f"Live fetch error, showing last cached: {e}")
+            st.warning(f"Live fetch error, showing cached: {e}")
             render_prediction_ui(st.session_state.esp_image, st.session_state.esp_result, btn_key="spray_esp_cached_err")
         else:
-            st.warning(f"Could not fetch latest data: {e}")
+            st.error(f"Could not fetch latest data: {e}")
 
-# ===========================================
+# ---------------------------
 # TAB: MANUAL UPLOAD
-# ===========================================
+# ---------------------------
 with tab_manual:
     st.header("Upload an Image (Manual)")
 
-    # Use a form to control submission and avoid rerun side effects
+    # Form stabilizes interactions and avoids rerun side-effects
     with st.form("manual_predict_form", clear_on_submit=False):
-        # NOTE: st.camera_input shows the camera preview by design.
-        # We will NOT call st.image() ourselves to avoid duplicates.
         uploaded_file = st.camera_input("Take a picture")
         submitted = st.form_submit_button("🔎 Predict from Uploaded Image")
 
-    # If a new image was captured, store it; DO NOT show extra preview
+    # Store image ONLY when a new one is captured (no extra preview here)
     if uploaded_file is not None:
-        st.session_state.manual_image = uploaded_file.getvalue()
-        # Reset result only when a new image arrives
-        st.session_state.manual_result = None
+        raw_bytes = uploaded_file.getvalue()
+        # If you need rotation due to upside-down camera, uncomment:
+        # raw_bytes = rotate_bytes_180(raw_bytes)
+        st.session_state.manual_image = raw_bytes
+        st.session_state.manual_result = None  # Reset only when new image arrives
 
-    # Predict only when the button is pressed
+    # Predict action
     if submitted:
-        if st.session_state.manual_image is None:
+        if not st.session_state.manual_image:
             st.warning("Please capture an image first.")
         else:
             with st.spinner("Processing prediction..."):
@@ -209,20 +285,28 @@ with tab_manual:
                     file_name = getattr(uploaded_file, "name", "camera.jpg") if uploaded_file else "camera.jpg"
                     file_type = getattr(uploaded_file, "type", "image/jpeg") if uploaded_file else "image/jpeg"
                     files = {"file": (file_name, st.session_state.manual_image, file_type)}
-
-                    resp = requests.post(f"{BACKEND}/predict", files=files, timeout=30)
+                    resp = requests.post(f"{BACKEND}/predict", files=files, timeout=45)
                     if resp.ok:
-                        resp_json = resp.json()
-                        st.session_state.manual_result = resp_json.get("result", {})
+                        result = resp.json().get("result", {})
+                        st.session_state.manual_result = result
                         st.success("Prediction successful!")
+                        st.toast("✅ Prediction ready")
                     else:
-                        st.error(f"Prediction failed. Status code: {resp.status_code}")
+                        st.error(f"Prediction failed (status {resp.status_code}).")
+                        # Optional: show server-provided error detail
+                        try:
+                            err_detail = resp.json().get("detail")
+                            if err_detail:
+                                with st.expander("Details"):
+                                    st.code(str(err_detail))
+                        except Exception:
+                            pass
                         st.session_state.manual_result = None
                 except Exception as e:
-                    st.error(f"Failed to send request or unexpected error: {e}")
+                    st.error(f"Failed to send request: {e}")
                     st.session_state.manual_result = None
 
-    # Render prediction result (only once, no extra manual preview)
+    # Render result (single display in stacked card)
     if st.session_state.manual_result and st.session_state.manual_image:
         st.markdown("---")
         render_prediction_ui(
@@ -230,3 +314,4 @@ with tab_manual:
             st.session_state.manual_result,
             btn_key="spray_manual",
         )
+
