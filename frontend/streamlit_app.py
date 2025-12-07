@@ -159,7 +159,7 @@ with tab_manual:
 
     # uploaded_file = st.file_uploader("Choose a leaf image", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
 
-    uploaded_file   = st.camera_input("Take a picture", disabled=not enable)
+    uploaded_file   = st.camera_input("Take a picture")
     
     # Optional: allow the user to provide a confidence override or extra metadata in the future
     if uploaded_file is not None:
