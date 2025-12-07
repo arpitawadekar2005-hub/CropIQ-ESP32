@@ -175,7 +175,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
                         <div class="v">{data.get('disease', '—')}</div>
                     </div>
                     <div class="pred-item">
-                        <b?PESTICIDE </b>
+                        <b>PESTICIDE </b>
                         <div class="v">{data.get('pesticide', '—')}</div>
                     </div>
                     <div class="pred-item">
