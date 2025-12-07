@@ -216,20 +216,21 @@ tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 with tab_esp:
     st.header("ESP32 Status & Latest Prediction")
     try:
-        status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
-        status = status_resp.json() if status_resp.ok else {"status": "unknown"}
+    status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
+    status = status_resp.json() if status_resp.ok else {"status": "unknown"}
+
         if status.get("status") == "online":
             last_seen = status.get("last_seen")
             if isinstance(last_seen, (int, float)):
-                st.success(f"🟢 ESP32 Connected — last seen {last_seen:.1f}s ago")
+                st.markdown(f"**ESP32 Status:** 🟢 Online (last seen {last_seen:.1f}s ago)")
             else:
-                st.success("🟢 ESP32 Connected")
+                st.markdown("**ESP32 Status:** 🟢 Online")
         else:
-            st.error("🔴 ESP32 NOT Connected")
-    except Exception:
-        st.error("⚠️ Backend unreachable")
+            st.markdown("**ESP32 Status:** 🔴 Offline")
 
-    st.write("")
+    except Exception:
+    st.markdown("**ESP32 Status:** ⚠️ Backend unreachable")
+
     top_cols = st.columns(2)
     with top_cols[0]:
         if st.button("📸 Capture Leaf Image", use_container_width=True):
