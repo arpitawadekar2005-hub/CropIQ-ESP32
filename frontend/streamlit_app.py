@@ -164,28 +164,50 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
         # st.markdown("<div class='pred-card'>", unsafe_allow_html=True)
         st.markdown("<h3 class='pred-title'>Prediction</h3>", unsafe_allow_html=True)
 
+        # st.markdown(
+        #     f"""
+        #     <div class="stack">
+        #         <div class="pred-item">
+        #             <div class="v"> <b> PLANT : {data.get('plant', '—')} </b></div>
+        #         </div>
+        #         <div class="pred-item">
+                    
+        #             <div class="v"> <b> DISEASE : {data.get('disease', '—')} </b></div>
+        #         </div>
+        #         <div class="pred-item">
+                    
+        #             <div class="v"> <b> PESTICIDE : {data.get('pesticide', '—')} </b></div>
+        #         </div>
+        #         <div class="pred-item">
+                    
+        #             <div class="v"> <b> DOSE (per 100 ml) : {data.get('dose', '0')} ml </b></div>
+        #         </div>
+        #     </div>
+        #     """,
+        #     unsafe_allow_html=True,
+        # )
         st.markdown(
-            f"""
-            <div class="stack">
-                <div class="pred-item">
-                    <div class="v"> <b> PLANT : {data.get('plant', '—')} </b></div>
-                </div>
-                <div class="pred-item">
-                    
-                    <div class="v"> <b> DISEASE : {data.get('disease', '—')} </b></div>
-                </div>
-                <div class="pred-item">
-                    
-                    <div class="v"> <b> PESTICIDE : {data.get('pesticide', '—')} </b></div>
-                </div>
-                <div class="pred-item">
-                    
-                    <div class="v"> <b> DOSE (per 100 ml) : {data.get('dose', '0')} ml </b></div>
-                </div>
+        f"""
+        <div class="stack">
+            <div class="pred-item">
+                <div class="v"><b>PLANT : {data.get('plant', '—')}</b></div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    
+            <div class="pred-item">
+                <div class="v"><b>DISEASE : {data.get('disease', '—')}</b></div>
+            </div>
+    
+            <div class="pred-item">
+                <div class="v"><b>PESTICIDE : {data.get('pesticide', '—')}</b></div>
+            </div>
+    
+            <div class="pred-item">
+                <div class="v"><b>DOSE (per 100 ml) : {data.get('dose', '0')} ml</b></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
         # Actions
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
