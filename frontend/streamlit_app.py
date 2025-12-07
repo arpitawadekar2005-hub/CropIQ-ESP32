@@ -168,19 +168,19 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
             f"""
             <div class="stack">
                 <div class="pred-item">
-                    <b>🌱 Plant</b>
+                    <b>🌱 PLANT</b>
                     <div class="v">{data.get('plant', '—')}</div>
                 </div>
                 <div class="pred-item">
-                    <b>🦠 Disease</b>
+                    <b>🦠 DISEASE</b>
                     <div class="v">{data.get('disease', '—')}</div>
                 </div>
                 <div class="pred-item">
-                    <b>🧪 Pesticide</b>
+                    <b>🧪 PESTICIDE</b>
                     <div class="v">{data.get('pesticide', '—')}</div>
                 </div>
                 <div class="pred-item">
-                    <b>💧 Dose (per 100 ml)</b>
+                    <b>💧 DOSE (per 100 ml)</b>
                     <div class="v">{data.get('dose', '0')} ml</div>
                 </div>
             </div>
