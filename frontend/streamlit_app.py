@@ -11,6 +11,23 @@ BACKEND = st.secrets["BACKEND_URL"]
 st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
 st.title("🌿 Plant Disease Detection Dashboard")
 
+# --- ESP status helper (cached for a few seconds to reduce flicker) ---
+@st.cache_data(ttl=5, show_spinner=False)
+def get_esp_status():
+    """
+    Returns a dict with keys:
+      - status: 'online' | 'offline' | 'unknown'
+      - last_seen: float seconds (may be absent)
+      - reason: string (optional)
+    """
+    try:
+        resp = requests.get(f"{BACKEND}/esp-status", timeout=4)
+        if resp.ok:
+            return resp.json()
+        return {"status": "unknown", "reason": f"http {resp.status_code}"}
+    except Exception as e:
+        return {"status": "unknown", "reason": str(e)}
+
 # ===========================================
 # GLOBAL STYLES (Plant-themed CSS)
 # ===========================================
