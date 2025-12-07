@@ -216,8 +216,8 @@ tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 with tab_esp:
     st.header("ESP32 Status & Latest Prediction")
     try:
-    status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
-    status = status_resp.json() if status_resp.ok else {"status": "unknown"}
+        status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
+        status = status_resp.json() if status_resp.ok else {"status": "unknown"}
 
         if status.get("status") == "online":
             last_seen = status.get("last_seen")
@@ -229,7 +229,7 @@ with tab_esp:
             st.markdown("**ESP32 Status:** 🔴 Offline")
 
     except Exception:
-    st.markdown("**ESP32 Status:** ⚠️ Backend unreachable")
+        st.markdown("**ESP32 Status:** ⚠️ Backend unreachable")
 
     top_cols = st.columns(2)
     with top_cols[0]:
