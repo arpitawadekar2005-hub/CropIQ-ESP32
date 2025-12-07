@@ -17,7 +17,7 @@ st.title("🌿 Plant Disease Detection Dashboard")
 # 🎨 Palette — tweak these values to change the mood
 BG_MAIN = "#eef7ee"             # soft mint/green background
 BG_SIDEBAR = "#e9f3e9"          # sidebar background
-CARD_BG = "#ffffff"             # card background
+CARD_BG = "#52796f"             # card background
 CARD_BORDER = "#cfe6cf"         # card border
 ITEM_BG = "#98a869"             # item row background
 ITEM_BORDER = "#d9ead9"         # item row border
