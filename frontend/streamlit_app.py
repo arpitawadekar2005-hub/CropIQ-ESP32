@@ -11,23 +11,6 @@ BACKEND = st.secrets["BACKEND_URL"]
 st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
 st.title("🌿 Plant Disease Detection Dashboard")
 
-# --- ESP status helper (cached for a few seconds to reduce flicker) ---
-@st.cache_data(ttl=5, show_spinner=False)
-def get_esp_status():
-    """
-    Returns a dict with keys:
-      - status: 'online' | 'offline' | 'unknown'
-      - last_seen: float seconds (may be absent)
-      - reason: string (optional)
-    """
-    try:
-        resp = requests.get(f"{BACKEND}/esp-status", timeout=4)
-        if resp.ok:
-            return resp.json()
-        return {"status": "unknown", "reason": f"http {resp.status_code}"}
-    except Exception as e:
-        return {"status": "unknown", "reason": str(e)}
-
 # ===========================================
 # GLOBAL STYLES (Plant-themed CSS)
 # ===========================================
@@ -232,6 +215,21 @@ tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 # ---------------------------
 with tab_esp:
     st.header("ESP32 Status & Latest Prediction")
+    try:
+        status_resp = requests.get(f"{BACKEND}/esp-status", timeout=3)
+        status = status_resp.json() if status_resp.ok else {"status": "unknown"}
+        if status.get("status") == "online":
+            last_seen = status.get("last_seen")
+            if isinstance(last_seen, (int, float)):
+                st.success(f"🟢 ESP32 Connected — last seen {last_seen:.1f}s ago")
+            else:
+                st.success("🟢 ESP32 Connected")
+        else:
+            st.error("🔴 ESP32 NOT Connected")
+    except Exception:
+        st.error("⚠️ Backend unreachable")
+
+    st.write("")
     top_cols = st.columns(2)
     with top_cols[0]:
         if st.button("📸 Capture Leaf Image", use_container_width=True):
