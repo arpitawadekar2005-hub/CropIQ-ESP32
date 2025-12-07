@@ -160,6 +160,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
         st.markdown("</div>", unsafe_allow_html=True)
 
     # Right: single prediction card (stacked vertically)
+    with col_info:
         st.markdown("<h3 class='pred-title'>Prediction</h3>", unsafe_allow_html=True)
         
         st.markdown(
