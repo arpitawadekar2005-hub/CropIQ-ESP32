@@ -231,8 +231,8 @@ with tab_esp:
     except Exception:
         st.markdown("**ESP32 Status:** ⚠️ Backend unreachable")
 
-    # top_cols = st.columns(2)
-    # with top_cols[0]:
+      top_cols = st.columns(1)
+      with top_cols[0]:
         if st.button("📸 Capture Leaf Image", use_container_width=True):
             try:
                 requests.post(f"{BACKEND}/capture", timeout=6)
