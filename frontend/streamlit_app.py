@@ -169,7 +169,7 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
             <div class="stack">
                 <div class="pred-item">
                     <b>🌱 PLANT</b>
-                    <div class="v">{data.get('plant', '—')}</div>
+                    <div class="v">🌱 PLANT : {data.get('plant', '—')}</div>
                 </div>
                 <div class="pred-item">
                     <b>🦠 DISEASE</b>
