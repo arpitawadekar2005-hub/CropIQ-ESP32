@@ -154,36 +154,65 @@ with tab_esp:
 # ===========================================
 # TAB: MANUAL UPLOAD
 # ===========================================
+# ===========================================
+# TAB: MANUAL UPLOAD
+# ===========================================
 with tab_manual:
     st.header("Upload an Image (Manual)")
 
     uploaded_file = st.camera_input("Take a picture")
-
+    
+    # Store the image data in state when a new file is uploaded
     if uploaded_file is not None:
         image_bytes = uploaded_file.getvalue()
         st.session_state.manual_image = image_bytes
-
+        
+        # Display preview right after upload
         st.image(image_bytes, caption="Uploaded Image Preview", use_column_width=False)
+        
+        # Reset result when a new image is uploaded/captured
+        st.session_state.manual_result = None
 
         if st.button("🔎 Predict from Uploaded Image"):
-            try:
-                files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
-                resp = requests.post(f"{BACKEND}/predict", files=files, timeout=15)
+            with st.spinner("Processing prediction..."):
+                try:
+                    files = {"file": (uploaded_file.name, image_bytes, uploaded_file.type)}
+                    # Use a longer timeout for prediction requests
+                    resp = requests.post(f"{BACKEND}/predict", files=files, timeout=30) 
 
-                if resp.ok:
-                    resp_json = resp.json()
-                    st.session_state.manual_result = resp_json["result"]
-                else:
-                    st.error("Prediction failed")
+                    if resp.ok:
+                        resp_json = resp.json()
+                        result = resp_json.get("result", {})
+                        
+                        # Store the result
+                        st.session_state.manual_result = result
+                        st.success("Prediction successful!")
+                        
+                        # RENDER IMMEDIATELY: Call the render function here 
+                        st.markdown("---")
+                        render_prediction_ui(
+                            st.session_state.manual_image,
+                            st.session_state.manual_result,
+                            btn_key="spray_manual_on_predict" # Use a unique key
+                        )
+                        
+                    else:
+                        st.error(f"Prediction failed. Status code: {resp.status_code}")
+                        st.session_state.manual_result = None
 
-            except Exception as e:
-                st.error(f"Failed to send request: {e}")
-
-    if st.session_state.manual_result and st.session_state.manual_image:
+                except Exception as e:
+                    st.error(f"Failed to send request or unexpected error: {e}")
+                    st.session_state.manual_result = None
+    
+    # Check if a result is already in state from a *previous* successful run
+    # and re-render it on subsequent app re-runs (if no new file was uploaded).
+    if (uploaded_file is None and 
+        st.session_state.manual_result and 
+        st.session_state.manual_image):
+        
         st.markdown("---")
         render_prediction_ui(
             st.session_state.manual_image,
             st.session_state.manual_result,
-            btn_key="spray_manual"
+            btn_key="spray_manual_on_rerun" # Use a unique key
         )
-
