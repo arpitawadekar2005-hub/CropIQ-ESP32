@@ -22,7 +22,7 @@ CARD_BORDER = "#cfe6cf"         # card border
 ITEM_BG = "#58855C"             # item row background
 ITEM_BORDER = "#d9ead9"         # item row border
 TEXT_HEADING = "#1f3c1f"        # dark green headings
-TEXT_BODY = "#173217"           # body text
+TEXT_BODY = "#FFFFFF"           # body text
 ACCENT = "#2e7d32"              # accent for hover/borders (matches config.toml)
 
 st.markdown(
