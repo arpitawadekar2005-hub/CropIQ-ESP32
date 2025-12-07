@@ -23,7 +23,7 @@ ITEM_BG = "#84a98c"             # item row background
 ITEM_BORDER = "#d9ead9"         # item row border
 TEXT_HEADING = "#1b4332"        # dark green headings
 TEXT_BODY = "#FFFFFF"           # body text
-ACCENT = "#2e7d32"              # accent for hover/borders (matches config.toml)
+ACCENT = "#354f52"              # accent for hover/borders (matches config.toml)
 
 st.markdown(
     f"""
