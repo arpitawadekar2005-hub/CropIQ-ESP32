@@ -1,6 +1,6 @@
 [theme]
 base = "light"                 # force light theme
-primaryColor = "#2563eb"       # accent color (buttons/links)
+primaryColor = "#354f52"       # accent color (buttons/links)
 backgroundColor = "#f6f7fb"    # 🎨 match your CSS background
 secondaryBackgroundColor = "#ffffff"
 textColor = "#111827"
