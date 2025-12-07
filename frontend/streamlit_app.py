@@ -1,7 +1,7 @@
 
 import streamlit as st
 import requests
-from model_utils_frontend import format_result
+from model_utils_frontend import format_result  # your normalizer
 
 # ===========================================
 # CONFIG
@@ -12,50 +12,97 @@ st.set_page_config(page_title="Plant Disease Dashboard", layout="wide")
 st.title("🌿 Plant Disease Detection Dashboard")
 
 # ===========================================
-# STYLE
+# GLOBAL STYLES (Plant-themed CSS)
 # ===========================================
+# 🎨 Palette — tweak these values to change the mood
+BG_MAIN = "#eef7ee"             # soft mint/green background
+BG_SIDEBAR = "#e9f3e9"          # sidebar background
+CARD_BG = "#ffffff"             # card background
+CARD_BORDER = "#cfe6cf"         # card border
+ITEM_BG = "#f2faf2"             # item row background
+ITEM_BORDER = "#d9ead9"         # item row border
+TEXT_HEADING = "#1f3c1f"        # dark green headings
+TEXT_BODY = "#173217"           # body text
+ACCENT = "#2e7d32"              # accent for hover/borders (matches config.toml)
+
 st.markdown(
-    """
+    f"""
     <style>
-    .app-toolbar {
-        display:flex; align-items:center; justify-content:space-between;
-        padding: 0.25rem 0;
-        border-bottom: 1px solid #e8e8e8;
-        margin-bottom: 0.75rem;
-    }
-    .kpi {
-        border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 14px;
-        background: #fafafa;
-    }
-    .kpi h4 { margin: 0 0 2px 0; font-size: 0.95rem; color: #666; }
-    .kpi .v { font-size: 1.1rem; font-weight: 700; color: #111; }
-    .img-box {
-        border: 1px solid #dadde1;
-        border-radius: 10px;
+    /* ----- App Background & Base ----- */
+    html, body, [data-testid="stAppViewContainer"] {{
+        background-color: {BG_MAIN};
+    }}
+    [data-testid="stSidebar"] > div {{
+        background-color: {BG_SIDEBAR};
+    }}
+
+    /* ----- Cards and Image ----- */
+    .img-box {{
+        border: 1px solid {CARD_BORDER};
+        border-radius: 12px;
         overflow: hidden;
-        background: #fff;
-    }
-    .pred-card {
-        border: 1px solid #dadde1;
+        background: {CARD_BG};
+    }}
+    .pred-card {{
+        border: 1px solid {CARD_BORDER};
         border-radius: 12px;
         padding: 16px;
-        background: #fff;
-    }
-    .pred-title {
-        text-align:center; margin: 0 0 12px 0;
-    }
-    .pred-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-    .pred-item { background:#f8fafc; border:1px solid #e5e7eb; border-radius:8px; padding:10px; }
-    .pred-item b { display:block; font-size: 0.9rem; color:#555; margin-bottom: 6px;}
-    .pred-item .v { font-size: 1.05rem; }
-    .actions { margin-top: 10px; }
+        background: {CARD_BG};
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+    }}
+    .pred-title {{
+        text-align:center;
+        margin: 0 0 12px 0;
+        font-weight: 700;
+        color: {TEXT_HEADING};
+    }}
+
+    /* ----- Single stacked details inside one card ----- */
+    .stack {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }}
+    .pred-item {{
+        background: {ITEM_BG};
+        border: 1px solid {ITEM_BORDER};
+        border-radius: 10px;
+        padding: 10px 12px;
+    }}
+    .pred-item b {{
+        display: block;
+        font-size: 0.9rem;
+        color: #355f35;
+        margin-bottom: 6px;
+    }}
+    .pred-item .v {{
+        font-size: 1.05rem;
+        color: {TEXT_BODY};
+        word-break: break-word;
+    }}
+
+    /* ----- Actions ----- */
+    .actions {{ margin-top: 12px; }}
+    .actions .caption {{ color: #517a51; font-size: 0.9rem; }}
+
+    /* ----- Buttons & headings ----- */
+    .stButton>button {{
+        border-radius: 10px;
+        border: 1px solid {CARD_BORDER};
+        background-color: {CARD_BG};
+        color: {TEXT_BODY};
+    }}
+    .stButton>button:hover {{
+        border-color: {ACCENT};
+    }}
+    h1, h2, h3 {{ color: {TEXT_HEADING}; }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ===========================================
-# SESSION STATE
+# SESSION STATE (kept separate per tab)
 # ===========================================
 defaults = {
     "esp_result": None,
@@ -68,21 +115,30 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 # ===========================================
-# UI HELPERS
-# ===========================================
-def kpi_card(title: str, value: str):
-    st.markdown(f"""
-    <div class="kpi">
-      <h4>{title}</h4>
-      <div class="v">{value}</div>
-    </div>
-    """, unsafe_allow_html=True)
+# OPTIONAL: rotate helper if your camera images appear upside-down
+# Uncomment and use if needed
+# from io import BytesIO
+# from PIL import Image
+# def rotate_bytes_180(img_bytes: bytes) -> bytes:
+#     try:
+#         im = Image.open(BytesIO(img_bytes))
+#         im = im.rotate(180, expand=True)
+#         out = BytesIO()
+#         im.save(out, format="JPEG", quality=90)
+#         return out.getvalue()
+#     except Exception:
+#         return img_bytes  # fallback
 
+# ===========================================
+# SHARED RENDERER: STACKED SINGLE CARD
+# ===========================================
 def render_prediction_ui(image_bytes, result_raw, btn_key: str):
     """
-    Renders: image (left), prediction summary and spray action (right).
-    Image is shown ONLY here to avoid duplicates.
+    Renders image (left) and a single stacked prediction card (right).
+    Details shown: Plant, Disease, Pesticide, Dose (per 100 ml).
+    Confidence/Infection are intentionally omitted.
     """
+    # dose_ml used to enable/disable spray button
     dose_ml = 0.0
     if isinstance(result_raw, dict):
         try:
@@ -90,58 +146,52 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
         except Exception:
             dose_ml = 0.0
 
-    data = format_result(result_raw)  # Expect keys: plant, disease, confidence, infection, pesticide, dose
+    data = format_result(result_raw)  # Expect keys: plant, disease, pesticide, dose
     if not data:
         st.warning("No data available for this image / response.")
         return
 
     col_img, col_info = st.columns([3, 2], gap="large")
 
+    # Left: image
     with col_img:
         st.markdown("<div class='img-box'>", unsafe_allow_html=True)
         st.image(image_bytes, caption="📷 Leaf Image", use_column_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
+    # Right: single prediction card (stacked vertically)
     with col_info:
         st.markdown("<div class='pred-card'>", unsafe_allow_html=True)
         st.markdown("<h3 class='pred-title'>🧠 Prediction</h3>", unsafe_allow_html=True)
 
-        # KPI quick glance
-        # k1, k2 = st.columns(2)
-        # with k1:
-        #     kpi_card("🎯 Confidence", f"{data.get('confidence', '—')}%")
-        # with k2:
-        #     kpi_card("🔥 Infection Level", f"{data.get('infection', '—')}%")
+        st.markdown(
+            f"""
+            <div class="stack">
+                <div class="pred-item">
+                    <b>🌱 Plant</b>
+                    <div class="v">{data.get('plant', '—')}</div>
+                </div>
+                <div class="pred-item">
+                    <b>🦠 Disease</b>
+                    <div class="v">{data.get('disease', '—')}</div>
+                </div>
+                <div class="pred-item">
+                    <b>🧪 Pesticide</b>
+                    <div class="v">{data.get('pesticide', '—')}</div>
+                </div>
+                <div class="pred-item">
+                    <b>💧 Dose (per 100 ml)</b>
+                    <div class="v">{data.get('dose', '0')} ml</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        st.markdown("")
-        # Details grid
-        st.markdown("<div class='pred-grid'>", unsafe_allow_html=True)
-        colA, colB = st.columns(2)
-        with colA:
-            st.markdown(
-                f"<div class='pred-item'><b>🌱 Plant</b><div class='v'>{data.get('plant', '—')}</div></div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f"<div class='pred-item'><b>🧪 Pesticide</b><div class='v'>{data.get('pesticide', '—')}</div></div>",
-                unsafe_allow_html=True,
-            )
-        with colB:
-            st.markdown(
-                f"<div class='pred-item'><b>🦠 Disease</b><div class='v'>{data.get('disease', '—')}</div></div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                f"<div class='pred-item'><b>💧 Dose (per 100 ml)</b><div class='v'>{data.get('dose', '0')} ml</div></div>",
-                unsafe_allow_html=True,
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
-
+        # Actions
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
-        can_spray = dose_ml and dose_ml > 0
-        spray_disabled = not can_spray
-
-        if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True, disabled=spray_disabled):
+        can_spray = dose_ml > 0
+        if st.button("🚿 Send Spray Command", key=btn_key, use_container_width=True, disabled=not can_spray):
             try:
                 requests.post(f"{BACKEND}/spray", params={"volume_ml": float(dose_ml)}, timeout=8)
                 st.success(f"Spray command sent: {float(dose_ml):.1f} mL")
@@ -149,12 +199,11 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
             except Exception as e:
                 st.error(f"Failed to send spray command: {e}")
 
-        if spray_disabled:
+        if not can_spray:
             st.caption("Spray disabled because recommended dose is 0 mL.")
-
         st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)  # pred-card
 
+        st.markdown("</div>", unsafe_allow_html=True)  # end pred-card
 
 # ===========================================
 # TABS
@@ -165,49 +214,22 @@ tab_esp, tab_manual = st.tabs(["ESP32", "Manual Upload"])
 # TAB: ESP32
 # ---------------------------
 with tab_esp:
-    # Toolbar
-    with st.container():
-        left, right = st.columns([4, 3])
-        with left:
-            st.subheader("ESP32 Status & Latest Prediction", divider="gray")
-        with right:
-            action_cols = st.columns(2)
-            with action_cols[0]:
-                if st.button("📸 Capture Leaf Image", use_container_width=True):
-                    try:
-                        requests.post(f"{BACKEND}/capture", timeout=6)
-                        st.toast("📩 Capture requested")
-                    except Exception as e:
-                        st.error(f"Failed to request capture: {e}")
-            with action_cols[1]:
-                if st.button("🔄 Refresh", use_container_width=True):
-                    st.rerun()
-
-    # Status card
-    status_cols = st.columns(3)
-    try:
-        status_resp = requests.get(f"{BACKEND}/esp-status", timeout=4)
-        status = status_resp.json() if status_resp.ok else {"status": "unknown"}
-        state = status.get("status", "unknown")
-        last_seen = status.get("last_seen", None)
-
-        with status_cols[0]:
-            kpi_card("ESP32", "🟢 Online" if state == "online" else "🔴 Offline")
-        with status_cols[1]:
-            kpi_card("Last Seen", f"{last_seen:.1f}s" if isinstance(last_seen, (int, float)) else "—")
-        with status_cols[2]:
-            kpi_card("Backend", f"{status_resp.status_code if status_resp else '—'} /esp-status")
-    except Exception:
-        with status_cols[0]:
-            kpi_card("ESP32", "⚠️ Unreachable")
-        with status_cols[1]:
-            kpi_card("Last Seen", "—")
-        with status_cols[2]:
-            kpi_card("Backend", "—")
+    st.header("ESP32 Status & Latest Prediction")
+    top_cols = st.columns(2)
+    with top_cols[0]:
+        if st.button("📸 Capture Leaf Image", use_container_width=True):
+            try:
+                requests.post(f"{BACKEND}/capture", timeout=6)
+                st.toast("📩 Capture requested")
+            except Exception as e:
+                st.error(f"Failed to request capture: {e}")
+    with top_cols[1]:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.rerun()
 
     st.markdown("---")
 
-    # Fetch and show latest
+    # Fetch and show latest ESP result
     try:
         latest_resp = requests.get(f"{BACKEND}/latest", timeout=6)
         latest_raw = latest_resp.json() if latest_resp.ok else None
@@ -235,19 +257,22 @@ with tab_esp:
             st.error(f"Could not fetch latest data: {e}")
 
 # ---------------------------
-# TAB: MANUAL
+# TAB: MANUAL UPLOAD
 # ---------------------------
 with tab_manual:
-    st.subheader("Upload an Image (Manual)", divider="gray")
+    st.header("Upload an Image (Manual)")
 
-    # Use a form to stabilize interactions
+    # Form stabilizes interactions and avoids rerun side-effects
     with st.form("manual_predict_form", clear_on_submit=False):
         uploaded_file = st.camera_input("Take a picture")
         submitted = st.form_submit_button("🔎 Predict from Uploaded Image")
 
-    # Store image ONLY when a new one is captured.
+    # Store image ONLY when a new one is captured (no extra preview here)
     if uploaded_file is not None:
-        st.session_state.manual_image = uploaded_file.getvalue()
+        raw_bytes = uploaded_file.getvalue()
+        # If you need rotation due to upside-down camera, uncomment:
+        # raw_bytes = rotate_bytes_180(raw_bytes)
+        st.session_state.manual_image = raw_bytes
         st.session_state.manual_result = None  # Reset only when new image arrives
 
     # Predict action
@@ -268,7 +293,7 @@ with tab_manual:
                         st.toast("✅ Prediction ready")
                     else:
                         st.error(f"Prediction failed (status {resp.status_code}).")
-                        # Optional: show server message if provided
+                        # Optional: show server-provided error detail
                         try:
                             err_detail = resp.json().get("detail")
                             if err_detail:
@@ -281,7 +306,7 @@ with tab_manual:
                     st.error(f"Failed to send request: {e}")
                     st.session_state.manual_result = None
 
-    # Render result (single display: no extra preview)
+    # Render result (single display in stacked card)
     if st.session_state.manual_result and st.session_state.manual_image:
         st.markdown("---")
         render_prediction_ui(
