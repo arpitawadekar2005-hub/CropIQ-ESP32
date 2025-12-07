@@ -163,29 +163,29 @@ def render_prediction_ui(image_bytes, result_raw, btn_key: str):
     with col_info:
         st.markdown("<h3 class='pred-title'>Prediction</h3>", unsafe_allow_html=True)
         
-    st.markdown(
-            f"""
-            <div class="stack">
-                <div class="pred-item">
-                    <b> PLANT : <div class="v">{data.get('plant', '—')}</div> </b>
-                    
+        st.markdown(
+                f"""
+                <div class="stack">
+                    <div class="pred-item">
+                        <b> PLANT : <div class="v">{data.get('plant', '—')}</div> </b>
+                        
+                    </div>
+                    <div class="pred-item">
+                        <b>🦠 Disease</b>
+                        <div class="v">{data.get('disease', '—')}</div>
+                    </div>
+                    <div class="pred-item">
+                        <b>🧪 Pesticide</b>
+                        <div class="v">{data.get('pesticide', '—')}</div>
+                    </div>
+                    <div class="pred-item">
+                        <b>💧 Dose (per 100 ml)</b>
+                        <div class="v">{data.get('dose', '0')} ml</div>
+                    </div>
                 </div>
-                <div class="pred-item">
-                    <b>🦠 Disease</b>
-                    <div class="v">{data.get('disease', '—')}</div>
-                </div>
-                <div class="pred-item">
-                    <b>🧪 Pesticide</b>
-                    <div class="v">{data.get('pesticide', '—')}</div>
-                </div>
-                <div class="pred-item">
-                    <b>💧 Dose (per 100 ml)</b>
-                    <div class="v">{data.get('dose', '0')} ml</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                """,
+                unsafe_allow_html=True,
+            )
         
         st.markdown("<div class='actions'>", unsafe_allow_html=True)
         can_spray = dose_ml > 0
