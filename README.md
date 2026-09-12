@@ -88,49 +88,20 @@ CropIQ uses a fine-tuned EfficientNet-B0 image classification model for tomato l
 - F1 score for difficult classes such as Early Blight and Target Spot: 86–88%
 - The model was fine-tuned using AdamW, weight decay and MixUp augmentation.
 
-## Working Principle
+## ## Working Principle
 
 The complete system operates in the following sequence:
 
-1. Image Capture
-
-The ESP32-CAM captures an image of the crop leaf.
-
-2. Image Upload
-
-The captured image is transmitted through Wi-Fi to the cloud backend.
-
-3. AI Processing
-
-The backend processes the image using the trained EfficientNet-B0 model.
-
-4. Disease Detection
-
-The model predicts the disease affecting the crop.
-
-5. Dosage Calculation
-
-The backend determines the required spray dosage.
-
-6. Spray Command
-
-The result is sent back to the ESP32.
-
-7. Pump Activation
-
-The ESP32 activates the relay, which switches the DC pump ON.
-
-8. Flow Measurement
-
-The YF-S401 flow sensor measures the liquid flow.
-
-9. Precision Spraying
-
-The pump operates according to the required dosage.
-
-10. Monitoring
-
-The prediction and spraying information are displayed on the Streamlit dashboard.
+1. **Image Capture** — ESP32-CAM captures an image of the crop leaf.
+2. **Image Upload** — The image is sent to the cloud backend through Wi-Fi.
+3. **AI Processing** — The backend processes the image using the trained EfficientNet-B0 model.
+4. **Disease Detection** — The AI model identifies the detected crop disease.
+5. **Dosage Calculation** — The backend calculates the required spray dosage.
+6. **Spray Command** — The spray command is sent back to the ESP32.
+7. **Pump Activation** — The ESP32 activates the relay to switch ON the DC pump.
+8. **Flow Measurement** — The YF-S401 flow sensor measures the liquid flow.
+9. **Precision Spraying** — The pump operates according to the calculated dosage.
+10. **Monitoring** — Prediction and spraying information are displayed on the Streamlit dashboard.
 
 ## Web Dashboard
 
