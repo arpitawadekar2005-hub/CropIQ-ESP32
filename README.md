@@ -158,7 +158,6 @@ This reduction was achieved through **selective spraying**, where pesticide is a
 | Precision Spraying | Successfully integrated |
 | Flow Feedback | YF-S401 sensor |
 | Pump Control | Relay-controlled |
-| Pesticide Reduction | Approximately 30–40% |
 | Cloud Connectivity | Successfully tested |
 
 > **Note:** These results are based on controlled and small-scale testing of the prototype. They are intended to demonstrate the feasibility of the system and should not be considered a universal performance guarantee under all field conditions.
