@@ -147,6 +147,21 @@ This reduction was achieved through **selective spraying**, where pesticide is a
 - AI responses were received successfully.
 - The AI prediction was used to control the pesticide spraying mechanism.
 
+### Results
+## Results
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/results_1.jpeg" width="400"/><br>
+      <b>ESP32 Status and Prediction Interface</b>
+    </td>
+    <td align="center">
+      <img src="images/results_2.jpeg" width="400"/><br>
+      <b>Plant Disease Detection Result</b>
+    </td>
+  </tr>
+</table>
 ### Summary of Results
 
 | Parameter | Result |
