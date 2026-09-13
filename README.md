@@ -160,6 +160,7 @@ This reduction was achieved through **selective spraying**, where pesticide is a
     </td>
   </tr>
 </table>
+
 ### Summary of Results
 
 | Parameter | Result |
