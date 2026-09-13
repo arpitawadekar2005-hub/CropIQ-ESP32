@@ -87,7 +87,7 @@ CropIQ uses a fine-tuned EfficientNet-B0 image classification model for tomato l
 - F1 score for difficult classes such as Early Blight and Target Spot: 86–88%
 - The model was fine-tuned using AdamW, weight decay and MixUp augmentation.
 
-## ## Working Principle
+### Working Principle
 
 The complete system operates in the following sequence:
 
@@ -102,7 +102,7 @@ The complete system operates in the following sequence:
 9. **Precision Spraying** — The pump operates according to the calculated dosage.
 10. **Monitoring** — Prediction and spraying information are displayed on the Streamlit dashboard.
 
-## Web Dashboard
+### Web Dashboard
 
 The CropIQ dashboard is developed using Streamlit.
 
@@ -146,8 +146,6 @@ This reduction was achieved through **selective spraying**, where pesticide is a
 - Captured images were uploaded for cloud-based processing.
 - AI responses were received successfully.
 - The AI prediction was used to control the pesticide spraying mechanism.
-
-### Results
 
 
 <table>
