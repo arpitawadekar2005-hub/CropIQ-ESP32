@@ -41,7 +41,7 @@ The objective is to reduce unnecessary pesticide usage, improve disease detectio
 ##  System Architecture
 
 <p align="center">
-  <img src="images/block-diagram.png" alt="CropIQ System Block Diagram" width="800">
+  <img src="images/block-diagram.png.jpeg" alt="CropIQ System Block Diagram" width="800">
 </p>
 
 ## Hardware Components
