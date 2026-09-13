@@ -1,7 +1,7 @@
 # 🌱 CropIQ – AI-Powered Precision Spraying System
 
 <p align="center">
-  <img src="images/cropiq-prototype.jpg" alt="CropIQ Prototype" width="700">
+  <img src="images/cropiq-prototype.jpg.jpeg" alt="CropIQ Prototype" width="700">
 </p>
 <p align="center">
   <b>AI + IoT based precision agriculture system for crop disease detection and targeted spraying.</b>
