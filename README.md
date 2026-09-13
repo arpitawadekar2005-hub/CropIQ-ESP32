@@ -148,7 +148,7 @@ This reduction was achieved through **selective spraying**, where pesticide is a
 - The AI prediction was used to control the pesticide spraying mechanism.
 
 ### Results
-## Results
+
 
 <table>
   <tr>
